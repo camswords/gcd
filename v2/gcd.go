@@ -28,6 +28,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -78,6 +79,7 @@ type Gcd struct {
 	timeout             time.Duration // how much time to wait for debugger port to open up
 	chromeProcess       *os.Process
 	chromeCmd           *exec.Cmd
+	chromeCmdOutput     io.Writer
 	terminatedHandler   TerminatedHandler
 	onChromeExitHandler OnChromeExitHandler
 	port                string
@@ -147,6 +149,13 @@ func WithDebugPortTimeout(timeout time.Duration) func(*Gcd) {
 	}
 }
 
+// WithChromeCmdOutput will send the STDOUT and STDERR output of the chrome process to the provided stream
+func WithChromeCmdOutput(output io.Writer) func(*Gcd) {
+	return func(g *Gcd) {
+		g.chromeCmdOutput = output
+	}
+}
+
 // WithFlags allows caller to add additional startup flags to the chrome process
 func WithFlags(flags []string) func(*Gcd) {
 	return func(g *Gcd) {
@@ -207,6 +216,20 @@ func (c *Gcd) Host() string {
 	return c.host
 }
 
+type CamWriter struct {
+}
+
+func (cam *CamWriter) Write(p []byte) (n int, err error) {
+	first, err := os.Stdout.Write([]byte("Cam was here: "))
+
+	if err != nil {
+		return 0, err
+	}
+
+	second, err := os.Stdout.Write(p)
+	return first + second, err
+}
+
 // StartProcess the process
 // exePath - the path to the executable
 // userDir - the user directory to start from so we get a fresh profile
@@ -226,6 +249,12 @@ func (c *Gcd) StartProcess(exePath, userDir, port string) error {
 	c.flags = append(c.flags, "--no-default-browser-check")
 
 	c.chromeCmd = exec.Command(exePath, c.flags...)
+
+	if c.chromeCmdOutput != nil {
+		c.chromeCmd.Stdout = c.chromeCmdOutput
+		c.chromeCmd.Stderr = c.chromeCmdOutput
+	}
+
 	// add custom environment variables.
 	c.chromeCmd.Env = os.Environ()
 	c.chromeCmd.Env = append(c.chromeCmd.Env, c.env...)
