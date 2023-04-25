@@ -36,13 +36,16 @@ type EmulationUserAgentBrandVersion struct {
 
 // Used to specify User Agent Cient Hints to emulate. See https://wicg.github.io/ua-client-hints Missing optional values will be filled in by the target with what it would normally use.
 type EmulationUserAgentMetadata struct {
-	Brands          []*EmulationUserAgentBrandVersion `json:"brands,omitempty"`      //
-	FullVersion     string                            `json:"fullVersion,omitempty"` //
-	Platform        string                            `json:"platform"`              //
-	PlatformVersion string                            `json:"platformVersion"`       //
-	Architecture    string                            `json:"architecture"`          //
-	Model           string                            `json:"model"`                 //
-	Mobile          bool                              `json:"mobile"`                //
+	Brands          []*EmulationUserAgentBrandVersion `json:"brands,omitempty"`          // Brands appearing in Sec-CH-UA.
+	FullVersionList []*EmulationUserAgentBrandVersion `json:"fullVersionList,omitempty"` // Brands appearing in Sec-CH-UA-Full-Version-List.
+	FullVersion     string                            `json:"fullVersion,omitempty"`     //
+	Platform        string                            `json:"platform"`                  //
+	PlatformVersion string                            `json:"platformVersion"`           //
+	Architecture    string                            `json:"architecture"`              //
+	Model           string                            `json:"model"`                     //
+	Mobile          bool                              `json:"mobile"`                    //
+	Bitness         string                            `json:"bitness,omitempty"`         //
+	Wow64           bool                              `json:"wow64,omitempty"`           //
 }
 
 type Emulation struct {
@@ -117,6 +120,24 @@ func (c *Emulation) SetFocusEmulationEnabled(ctx context.Context, enabled bool) 
 	var v EmulationSetFocusEmulationEnabledParams
 	v.Enabled = enabled
 	return c.SetFocusEmulationEnabledWithParams(ctx, &v)
+}
+
+type EmulationSetAutoDarkModeOverrideParams struct {
+	// Whether to enable or disable automatic dark mode. If not specified, any existing override will be cleared.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// SetAutoDarkModeOverrideWithParams - Automatically render all web contents using a dark theme.
+func (c *Emulation) SetAutoDarkModeOverrideWithParams(ctx context.Context, v *EmulationSetAutoDarkModeOverrideParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Emulation.setAutoDarkModeOverride", Params: v})
+}
+
+// SetAutoDarkModeOverride - Automatically render all web contents using a dark theme.
+// enabled - Whether to enable or disable automatic dark mode. If not specified, any existing override will be cleared.
+func (c *Emulation) SetAutoDarkModeOverride(ctx context.Context, enabled bool) (*gcdmessage.ChromeResponse, error) {
+	var v EmulationSetAutoDarkModeOverrideParams
+	v.Enabled = enabled
+	return c.SetAutoDarkModeOverrideWithParams(ctx, &v)
 }
 
 type EmulationSetCPUThrottlingRateParams struct {
@@ -302,7 +323,7 @@ func (c *Emulation) SetEmulatedMedia(ctx context.Context, media string, features
 }
 
 type EmulationSetEmulatedVisionDeficiencyParams struct {
-	// Vision deficiency to emulate.
+	// Vision deficiency to emulate. Order: best-effort emulations come first, followed by any physiologically accurate emulations for medically recognized color vision deficiencies.
 	TheType string `json:"type"`
 }
 
@@ -312,7 +333,7 @@ func (c *Emulation) SetEmulatedVisionDeficiencyWithParams(ctx context.Context, v
 }
 
 // SetEmulatedVisionDeficiency - Emulates the given vision deficiency.
-// type - Vision deficiency to emulate.
+// type - Vision deficiency to emulate. Order: best-effort emulations come first, followed by any physiologically accurate emulations for medically recognized color vision deficiencies.
 func (c *Emulation) SetEmulatedVisionDeficiency(ctx context.Context, theType string) (*gcdmessage.ChromeResponse, error) {
 	var v EmulationSetEmulatedVisionDeficiencyParams
 	v.TheType = theType
@@ -455,8 +476,6 @@ type EmulationSetVirtualTimePolicyParams struct {
 	Budget float64 `json:"budget,omitempty"`
 	// If set this specifies the maximum number of tasks that can be run before virtual is forced forwards to prevent deadlock.
 	MaxVirtualTimeTaskStarvationCount int `json:"maxVirtualTimeTaskStarvationCount,omitempty"`
-	// If set the virtual time policy change should be deferred until any frame starts navigating. Note any previous deferred policy change is superseded.
-	WaitForNavigation bool `json:"waitForNavigation,omitempty"`
 	// If set, base::Time::Now will be overridden to initially return this value.
 	InitialVirtualTime float64 `json:"initialVirtualTime,omitempty"`
 }
@@ -497,15 +516,13 @@ func (c *Emulation) SetVirtualTimePolicyWithParams(ctx context.Context, v *Emula
 // policy -  enum values: advance, pause, pauseIfNetworkFetchesPending
 // budget - If set, after this many virtual milliseconds have elapsed virtual time will be paused and a virtualTimeBudgetExpired event is sent.
 // maxVirtualTimeTaskStarvationCount - If set this specifies the maximum number of tasks that can be run before virtual is forced forwards to prevent deadlock.
-// waitForNavigation - If set the virtual time policy change should be deferred until any frame starts navigating. Note any previous deferred policy change is superseded.
 // initialVirtualTime - If set, base::Time::Now will be overridden to initially return this value.
 // Returns -  virtualTimeTicksBase - Absolute timestamp at which virtual time was first enabled (up time in milliseconds).
-func (c *Emulation) SetVirtualTimePolicy(ctx context.Context, policy string, budget float64, maxVirtualTimeTaskStarvationCount int, waitForNavigation bool, initialVirtualTime float64) (float64, error) {
+func (c *Emulation) SetVirtualTimePolicy(ctx context.Context, policy string, budget float64, maxVirtualTimeTaskStarvationCount int, initialVirtualTime float64) (float64, error) {
 	var v EmulationSetVirtualTimePolicyParams
 	v.Policy = policy
 	v.Budget = budget
 	v.MaxVirtualTimeTaskStarvationCount = maxVirtualTimeTaskStarvationCount
-	v.WaitForNavigation = waitForNavigation
 	v.InitialVirtualTime = initialVirtualTime
 	return c.SetVirtualTimePolicyWithParams(ctx, &v)
 }
@@ -569,7 +586,7 @@ func (c *Emulation) SetVisibleSize(ctx context.Context, width int, height int) (
 }
 
 type EmulationSetDisabledImageTypesParams struct {
-	// Image types to disable. enum values: avif, jxl, webp
+	// Image types to disable. enum values: avif, webp
 	ImageTypes []string `json:"imageTypes"`
 }
 
@@ -579,11 +596,29 @@ func (c *Emulation) SetDisabledImageTypesWithParams(ctx context.Context, v *Emul
 }
 
 // SetDisabledImageTypes -
-// imageTypes - Image types to disable. enum values: avif, jxl, webp
+// imageTypes - Image types to disable. enum values: avif, webp
 func (c *Emulation) SetDisabledImageTypes(ctx context.Context, imageTypes []string) (*gcdmessage.ChromeResponse, error) {
 	var v EmulationSetDisabledImageTypesParams
 	v.ImageTypes = imageTypes
 	return c.SetDisabledImageTypesWithParams(ctx, &v)
+}
+
+type EmulationSetHardwareConcurrencyOverrideParams struct {
+	// Hardware concurrency to report
+	HardwareConcurrency int `json:"hardwareConcurrency"`
+}
+
+// SetHardwareConcurrencyOverrideWithParams -
+func (c *Emulation) SetHardwareConcurrencyOverrideWithParams(ctx context.Context, v *EmulationSetHardwareConcurrencyOverrideParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Emulation.setHardwareConcurrencyOverride", Params: v})
+}
+
+// SetHardwareConcurrencyOverride -
+// hardwareConcurrency - Hardware concurrency to report
+func (c *Emulation) SetHardwareConcurrencyOverride(ctx context.Context, hardwareConcurrency int) (*gcdmessage.ChromeResponse, error) {
+	var v EmulationSetHardwareConcurrencyOverrideParams
+	v.HardwareConcurrency = hardwareConcurrency
+	return c.SetHardwareConcurrencyOverrideWithParams(ctx, &v)
 }
 
 type EmulationSetUserAgentOverrideParams struct {
@@ -614,4 +649,22 @@ func (c *Emulation) SetUserAgentOverride(ctx context.Context, userAgent string, 
 	v.Platform = platform
 	v.UserAgentMetadata = userAgentMetadata
 	return c.SetUserAgentOverrideWithParams(ctx, &v)
+}
+
+type EmulationSetAutomationOverrideParams struct {
+	// Whether the override should be enabled.
+	Enabled bool `json:"enabled"`
+}
+
+// SetAutomationOverrideWithParams - Allows overriding the automation flag.
+func (c *Emulation) SetAutomationOverrideWithParams(ctx context.Context, v *EmulationSetAutomationOverrideParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Emulation.setAutomationOverride", Params: v})
+}
+
+// SetAutomationOverride - Allows overriding the automation flag.
+// enabled - Whether the override should be enabled.
+func (c *Emulation) SetAutomationOverride(ctx context.Context, enabled bool) (*gcdmessage.ChromeResponse, error) {
+	var v EmulationSetAutomationOverrideParams
+	v.Enabled = enabled
+	return c.SetAutomationOverrideWithParams(ctx, &v)
 }

@@ -11,14 +11,20 @@ import (
 
 // CSS rule collection for a single pseudo style.
 type CSSPseudoElementMatches struct {
-	PseudoType string          `json:"pseudoType"` // Pseudo element type. enum values: first-line, first-letter, before, after, marker, backdrop, selection, target-text, spelling-error, grammar-error, first-line-inherited, scrollbar, scrollbar-thumb, scrollbar-button, scrollbar-track, scrollbar-track-piece, scrollbar-corner, resizer, input-list-button
-	Matches    []*CSSRuleMatch `json:"matches"`    // Matches of CSS rules applicable to the pseudo style.
+	PseudoType       string          `json:"pseudoType"`                 // Pseudo element type. enum values: first-line, first-letter, before, after, marker, backdrop, selection, target-text, spelling-error, grammar-error, highlight, first-line-inherited, scrollbar, scrollbar-thumb, scrollbar-button, scrollbar-track, scrollbar-track-piece, scrollbar-corner, resizer, input-list-button, view-transition, view-transition-group, view-transition-image-pair, view-transition-old, view-transition-new
+	PseudoIdentifier string          `json:"pseudoIdentifier,omitempty"` // Pseudo element custom ident.
+	Matches          []*CSSRuleMatch `json:"matches"`                    // Matches of CSS rules applicable to the pseudo style.
 }
 
 // Inherited CSS rule collection from ancestor node.
 type CSSInheritedStyleEntry struct {
 	InlineStyle     *CSSCSSStyle    `json:"inlineStyle,omitempty"` // The ancestor node's inline style, if any, in the style inheritance chain.
 	MatchedCSSRules []*CSSRuleMatch `json:"matchedCSSRules"`       // Matches of CSS rules matching the ancestor node in the style inheritance chain.
+}
+
+// Inherited pseudo element matches from pseudos of an ancestor node.
+type CSSInheritedPseudoElementMatches struct {
+	PseudoElements []*CSSPseudoElementMatches `json:"pseudoElements"` // Matches of pseudo styles from the pseudos of an ancestor node.
 }
 
 // Match data for a CSS rule.
@@ -43,7 +49,7 @@ type CSSSelectorList struct {
 type CSSCSSStyleSheetHeader struct {
 	StyleSheetId  string  `json:"styleSheetId"`           // The stylesheet identifier.
 	FrameId       string  `json:"frameId"`                // Owner frame identifier.
-	SourceURL     string  `json:"sourceURL"`              // Stylesheet resource URL.
+	SourceURL     string  `json:"sourceURL"`              // Stylesheet resource URL. Empty if this is a constructed stylesheet created using new CSSStyleSheet() (but non-empty if this is a constructed sylesheet imported as a CSS module script).
 	SourceMapURL  string  `json:"sourceMapURL,omitempty"` // URL of source map associated with the stylesheet (if any).
 	Origin        string  `json:"origin"`                 // Stylesheet origin. enum values: injected, user-agent, inspector, regular
 	Title         string  `json:"title"`                  // Stylesheet title.
@@ -52,7 +58,7 @@ type CSSCSSStyleSheetHeader struct {
 	HasSourceURL  bool    `json:"hasSourceURL,omitempty"` // Whether the sourceURL field value comes from the sourceURL comment.
 	IsInline      bool    `json:"isInline"`               // Whether this stylesheet is created for STYLE tag by parser. This flag is not set for document.written STYLE tags.
 	IsMutable     bool    `json:"isMutable"`              // Whether this stylesheet is mutable. Inline stylesheets become mutable after they have been modified via CSSOM API. <link> element's stylesheets become mutable only if DevTools modifies them. Constructed stylesheets (new CSSStyleSheet()) are mutable immediately after creation.
-	IsConstructed bool    `json:"isConstructed"`          // Whether this stylesheet is a constructed stylesheet (created using new CSSStyleSheet()).
+	IsConstructed bool    `json:"isConstructed"`          // True if this stylesheet is created through new CSSStyleSheet() or imported as a CSS module script.
 	StartLine     float64 `json:"startLine"`              // Line offset of the stylesheet within the resource (zero based).
 	StartColumn   float64 `json:"startColumn"`            // Column offset of the stylesheet within the resource (zero based).
 	Length        float64 `json:"length"`                 // Size of the content (in characters).
@@ -62,11 +68,16 @@ type CSSCSSStyleSheetHeader struct {
 
 // CSS rule representation.
 type CSSCSSRule struct {
-	StyleSheetId string           `json:"styleSheetId,omitempty"` // The css style sheet identifier (absent for user agent stylesheet and user-specified stylesheet rules) this rule came from.
-	SelectorList *CSSSelectorList `json:"selectorList"`           // Rule selector data.
-	Origin       string           `json:"origin"`                 // Parent stylesheet's origin. enum values: injected, user-agent, inspector, regular
-	Style        *CSSCSSStyle     `json:"style"`                  // Associated style declaration.
-	Media        []*CSSCSSMedia   `json:"media,omitempty"`        // Media list array (for rules involving media queries). The array enumerates media queries starting with the innermost one, going outwards.
+	StyleSheetId     string                  `json:"styleSheetId,omitempty"`     // The css style sheet identifier (absent for user agent stylesheet and user-specified stylesheet rules) this rule came from.
+	SelectorList     *CSSSelectorList        `json:"selectorList"`               // Rule selector data.
+	NestingSelectors []string                `json:"nestingSelectors,omitempty"` // Array of selectors from ancestor style rules, sorted by distance from the current rule.
+	Origin           string                  `json:"origin"`                     // Parent stylesheet's origin. enum values: injected, user-agent, inspector, regular
+	Style            *CSSCSSStyle            `json:"style"`                      // Associated style declaration.
+	Media            []*CSSCSSMedia          `json:"media,omitempty"`            // Media list array (for rules involving media queries). The array enumerates media queries starting with the innermost one, going outwards.
+	ContainerQueries []*CSSCSSContainerQuery `json:"containerQueries,omitempty"` // Container query list array (for rules involving container queries). The array enumerates container queries starting with the innermost one, going outwards.
+	Supports         []*CSSCSSSupports       `json:"supports,omitempty"`         // @supports CSS at-rule array. The array enumerates @supports at-rules starting with the innermost one, going outwards.
+	Layers           []*CSSCSSLayer          `json:"layers,omitempty"`           // Cascade layer array. Contains the layer hierarchy that this rule belongs to starting with the innermost layer and going outwards.
+	Scopes           []*CSSCSSScope          `json:"scopes,omitempty"`           // @scope CSS at-rule array. The array enumerates @scope at-rules starting with the innermost one, going outwards.
 }
 
 // CSS coverage information.
@@ -109,14 +120,15 @@ type CSSCSSStyle struct {
 
 // CSS property declaration data.
 type CSSCSSProperty struct {
-	Name      string          `json:"name"`                // The property name.
-	Value     string          `json:"value"`               // The property value.
-	Important bool            `json:"important,omitempty"` // Whether the property has "!important" annotation (implies `false` if absent).
-	Implicit  bool            `json:"implicit,omitempty"`  // Whether the property is implicit (implies `false` if absent).
-	Text      string          `json:"text,omitempty"`      // The full property text as specified in the style.
-	ParsedOk  bool            `json:"parsedOk,omitempty"`  // Whether the property is understood by the browser (implies `true` if absent).
-	Disabled  bool            `json:"disabled,omitempty"`  // Whether the property is disabled by the user (present for source-based properties only).
-	Range     *CSSSourceRange `json:"range,omitempty"`     // The entire property range in the enclosing style declaration (if available).
+	Name               string            `json:"name"`                         // The property name.
+	Value              string            `json:"value"`                        // The property value.
+	Important          bool              `json:"important,omitempty"`          // Whether the property has "!important" annotation (implies `false` if absent).
+	Implicit           bool              `json:"implicit,omitempty"`           // Whether the property is implicit (implies `false` if absent).
+	Text               string            `json:"text,omitempty"`               // The full property text as specified in the style.
+	ParsedOk           bool              `json:"parsedOk,omitempty"`           // Whether the property is understood by the browser (implies `true` if absent).
+	Disabled           bool              `json:"disabled,omitempty"`           // Whether the property is disabled by the user (present for source-based properties only).
+	Range              *CSSSourceRange   `json:"range,omitempty"`              // The entire property range in the enclosing style declaration (if available).
+	LonghandProperties []*CSSCSSProperty `json:"longhandProperties,omitempty"` // Parsed longhand components of this property if it is a shorthand. This field will be empty if the given property is not a shorthand.
 }
 
 // CSS media rule descriptor.
@@ -144,6 +156,45 @@ type CSSMediaQueryExpression struct {
 	ComputedLength float64         `json:"computedLength,omitempty"` // Computed length of media query expression (if applicable).
 }
 
+// CSS container query rule descriptor.
+type CSSCSSContainerQuery struct {
+	Text         string          `json:"text"`                   // Container query text.
+	Range        *CSSSourceRange `json:"range,omitempty"`        // The associated rule header range in the enclosing stylesheet (if available).
+	StyleSheetId string          `json:"styleSheetId,omitempty"` // Identifier of the stylesheet containing this object (if exists).
+	Name         string          `json:"name,omitempty"`         // Optional name for the container.
+	PhysicalAxes string          `json:"physicalAxes,omitempty"` // Optional physical axes queried for the container. enum values: Horizontal, Vertical, Both
+	LogicalAxes  string          `json:"logicalAxes,omitempty"`  // Optional logical axes queried for the container. enum values: Inline, Block, Both
+}
+
+// CSS Supports at-rule descriptor.
+type CSSCSSSupports struct {
+	Text         string          `json:"text"`                   // Supports rule text.
+	Active       bool            `json:"active"`                 // Whether the supports condition is satisfied.
+	Range        *CSSSourceRange `json:"range,omitempty"`        // The associated rule header range in the enclosing stylesheet (if available).
+	StyleSheetId string          `json:"styleSheetId,omitempty"` // Identifier of the stylesheet containing this object (if exists).
+}
+
+// CSS Scope at-rule descriptor.
+type CSSCSSScope struct {
+	Text         string          `json:"text"`                   // Scope rule text.
+	Range        *CSSSourceRange `json:"range,omitempty"`        // The associated rule header range in the enclosing stylesheet (if available).
+	StyleSheetId string          `json:"styleSheetId,omitempty"` // Identifier of the stylesheet containing this object (if exists).
+}
+
+// CSS Layer at-rule descriptor.
+type CSSCSSLayer struct {
+	Text         string          `json:"text"`                   // Layer name.
+	Range        *CSSSourceRange `json:"range,omitempty"`        // The associated rule header range in the enclosing stylesheet (if available).
+	StyleSheetId string          `json:"styleSheetId,omitempty"` // Identifier of the stylesheet containing this object (if exists).
+}
+
+// CSS Layer data.
+type CSSCSSLayerData struct {
+	Name      string             `json:"name"`                // Layer name.
+	SubLayers []*CSSCSSLayerData `json:"subLayers,omitempty"` // Direct sub-layers
+	Order     float64            `json:"order"`               // Layer order. The order determines the order of the layer in the cascade order. A higher number has higher priority in the cascade order.
+}
+
 // Information about amount of glyphs that were rendered with given font.
 type CSSPlatformFontUsage struct {
 	FamilyName   string  `json:"familyName"`   // Font's family name reported by platform.
@@ -167,6 +218,7 @@ type CSSFontFace struct {
 	FontVariant        string                  `json:"fontVariant"`                 // The font-variant.
 	FontWeight         string                  `json:"fontWeight"`                  // The font-weight.
 	FontStretch        string                  `json:"fontStretch"`                 // The font-stretch.
+	FontDisplay        string                  `json:"fontDisplay"`                 // The font-display.
 	UnicodeRange       string                  `json:"unicodeRange"`                // The unicode-range.
 	Src                string                  `json:"src"`                         // The src.
 	PlatformFontFamily string                  `json:"platformFontFamily"`          // The resolved platform font family
@@ -194,7 +246,7 @@ type CSSStyleDeclarationEdit struct {
 	Text         string          `json:"text"`         // New style text.
 }
 
-// Fires whenever a web font is updated.  A non-empty font parameter indicates a successfully loaded web font
+// Fires whenever a web font is updated.  A non-empty font parameter indicates a successfully loaded web font.
 type CSSFontsUpdatedEvent struct {
 	Method string `json:"method"`
 	Params struct {
@@ -560,46 +612,48 @@ type CSSGetMatchedStylesForNodeParams struct {
 }
 
 // GetMatchedStylesForNodeWithParams - Returns requested styles for a DOM node identified by `nodeId`.
-// Returns -  inlineStyle - Inline style for the specified DOM node. attributesStyle - Attribute-defined element style (e.g. resulting from "width=20 height=100%"). matchedCSSRules - CSS rules matching this node, from all applicable stylesheets. pseudoElements - Pseudo style matches for this node. inherited - A chain of inherited styles (from the immediate node parent up to the DOM tree root). cssKeyframesRules - A list of CSS keyframed animations matching this node.
-func (c *CSS) GetMatchedStylesForNodeWithParams(ctx context.Context, v *CSSGetMatchedStylesForNodeParams) (*CSSCSSStyle, *CSSCSSStyle, []*CSSRuleMatch, []*CSSPseudoElementMatches, []*CSSInheritedStyleEntry, []*CSSCSSKeyframesRule, error) {
+// Returns -  inlineStyle - Inline style for the specified DOM node. attributesStyle - Attribute-defined element style (e.g. resulting from "width=20 height=100%"). matchedCSSRules - CSS rules matching this node, from all applicable stylesheets. pseudoElements - Pseudo style matches for this node. inherited - A chain of inherited styles (from the immediate node parent up to the DOM tree root). inheritedPseudoElements - A chain of inherited pseudo element styles (from the immediate node parent up to the DOM tree root). cssKeyframesRules - A list of CSS keyframed animations matching this node. parentLayoutNodeId - Id of the first parent element that does not have display: contents.
+func (c *CSS) GetMatchedStylesForNodeWithParams(ctx context.Context, v *CSSGetMatchedStylesForNodeParams) (*CSSCSSStyle, *CSSCSSStyle, []*CSSRuleMatch, []*CSSPseudoElementMatches, []*CSSInheritedStyleEntry, []*CSSInheritedPseudoElementMatches, []*CSSCSSKeyframesRule, int, error) {
 	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.getMatchedStylesForNode", Params: v})
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, 0, err
 	}
 
 	var chromeData struct {
 		Result struct {
-			InlineStyle       *CSSCSSStyle
-			AttributesStyle   *CSSCSSStyle
-			MatchedCSSRules   []*CSSRuleMatch
-			PseudoElements    []*CSSPseudoElementMatches
-			Inherited         []*CSSInheritedStyleEntry
-			CssKeyframesRules []*CSSCSSKeyframesRule
+			InlineStyle             *CSSCSSStyle
+			AttributesStyle         *CSSCSSStyle
+			MatchedCSSRules         []*CSSRuleMatch
+			PseudoElements          []*CSSPseudoElementMatches
+			Inherited               []*CSSInheritedStyleEntry
+			InheritedPseudoElements []*CSSInheritedPseudoElementMatches
+			CssKeyframesRules       []*CSSCSSKeyframesRule
+			ParentLayoutNodeId      int
 		}
 	}
 
 	if resp == nil {
-		return nil, nil, nil, nil, nil, nil, &gcdmessage.ChromeEmptyResponseErr{}
+		return nil, nil, nil, nil, nil, nil, nil, 0, &gcdmessage.ChromeEmptyResponseErr{}
 	}
 
 	// test if error first
 	cerr := &gcdmessage.ChromeErrorResponse{}
 	json.Unmarshal(resp.Data, cerr)
 	if cerr != nil && cerr.Error != nil {
-		return nil, nil, nil, nil, nil, nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+		return nil, nil, nil, nil, nil, nil, nil, 0, &gcdmessage.ChromeRequestErr{Resp: cerr}
 	}
 
 	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, 0, err
 	}
 
-	return chromeData.Result.InlineStyle, chromeData.Result.AttributesStyle, chromeData.Result.MatchedCSSRules, chromeData.Result.PseudoElements, chromeData.Result.Inherited, chromeData.Result.CssKeyframesRules, nil
+	return chromeData.Result.InlineStyle, chromeData.Result.AttributesStyle, chromeData.Result.MatchedCSSRules, chromeData.Result.PseudoElements, chromeData.Result.Inherited, chromeData.Result.InheritedPseudoElements, chromeData.Result.CssKeyframesRules, chromeData.Result.ParentLayoutNodeId, nil
 }
 
 // GetMatchedStylesForNode - Returns requested styles for a DOM node identified by `nodeId`.
 // nodeId -
-// Returns -  inlineStyle - Inline style for the specified DOM node. attributesStyle - Attribute-defined element style (e.g. resulting from "width=20 height=100%"). matchedCSSRules - CSS rules matching this node, from all applicable stylesheets. pseudoElements - Pseudo style matches for this node. inherited - A chain of inherited styles (from the immediate node parent up to the DOM tree root). cssKeyframesRules - A list of CSS keyframed animations matching this node.
-func (c *CSS) GetMatchedStylesForNode(ctx context.Context, nodeId int) (*CSSCSSStyle, *CSSCSSStyle, []*CSSRuleMatch, []*CSSPseudoElementMatches, []*CSSInheritedStyleEntry, []*CSSCSSKeyframesRule, error) {
+// Returns -  inlineStyle - Inline style for the specified DOM node. attributesStyle - Attribute-defined element style (e.g. resulting from "width=20 height=100%"). matchedCSSRules - CSS rules matching this node, from all applicable stylesheets. pseudoElements - Pseudo style matches for this node. inherited - A chain of inherited styles (from the immediate node parent up to the DOM tree root). inheritedPseudoElements - A chain of inherited pseudo element styles (from the immediate node parent up to the DOM tree root). cssKeyframesRules - A list of CSS keyframed animations matching this node. parentLayoutNodeId - Id of the first parent element that does not have display: contents.
+func (c *CSS) GetMatchedStylesForNode(ctx context.Context, nodeId int) (*CSSCSSStyle, *CSSCSSStyle, []*CSSRuleMatch, []*CSSPseudoElementMatches, []*CSSInheritedStyleEntry, []*CSSInheritedPseudoElementMatches, []*CSSCSSKeyframesRule, int, error) {
 	var v CSSGetMatchedStylesForNodeParams
 	v.NodeId = nodeId
 	return c.GetMatchedStylesForNodeWithParams(ctx, &v)
@@ -729,6 +783,52 @@ func (c *CSS) GetStyleSheetText(ctx context.Context, styleSheetId string) (strin
 	return c.GetStyleSheetTextWithParams(ctx, &v)
 }
 
+type CSSGetLayersForNodeParams struct {
+	//
+	NodeId int `json:"nodeId"`
+}
+
+// GetLayersForNodeWithParams - Returns all layers parsed by the rendering engine for the tree scope of a node. Given a DOM element identified by nodeId, getLayersForNode returns the root layer for the nearest ancestor document or shadow root. The layer root contains the full layer tree for the tree scope and their ordering.
+// Returns -  rootLayer -
+func (c *CSS) GetLayersForNodeWithParams(ctx context.Context, v *CSSGetLayersForNodeParams) (*CSSCSSLayerData, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.getLayersForNode", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			RootLayer *CSSCSSLayerData
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.RootLayer, nil
+}
+
+// GetLayersForNode - Returns all layers parsed by the rendering engine for the tree scope of a node. Given a DOM element identified by nodeId, getLayersForNode returns the root layer for the nearest ancestor document or shadow root. The layer root contains the full layer tree for the tree scope and their ordering.
+// nodeId -
+// Returns -  rootLayer -
+func (c *CSS) GetLayersForNode(ctx context.Context, nodeId int) (*CSSCSSLayerData, error) {
+	var v CSSGetLayersForNodeParams
+	v.NodeId = nodeId
+	return c.GetLayersForNodeWithParams(ctx, &v)
+}
+
 type CSSTrackComputedStyleUpdatesParams struct {
 	//
 	PropertiesToTrack []*CSSCSSComputedStyleProperty `json:"propertiesToTrack"`
@@ -748,7 +848,7 @@ func (c *CSS) TrackComputedStyleUpdates(ctx context.Context, propertiesToTrack [
 }
 
 // TakeComputedStyleUpdates - Polls the next batch of computed style updates.
-// Returns -  nodeIds - The list of node Ids that have their tracked computed styles updated
+// Returns -  nodeIds - The list of node Ids that have their tracked computed styles updated.
 func (c *CSS) TakeComputedStyleUpdates(ctx context.Context) ([]int, error) {
 	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.takeComputedStyleUpdates"})
 	if err != nil {
@@ -913,6 +1013,168 @@ func (c *CSS) SetMediaText(ctx context.Context, styleSheetId string, theRange *C
 	return c.SetMediaTextWithParams(ctx, &v)
 }
 
+type CSSSetContainerQueryTextParams struct {
+	//
+	StyleSheetId string `json:"styleSheetId"`
+	//
+	TheRange *CSSSourceRange `json:"range"`
+	//
+	Text string `json:"text"`
+}
+
+// SetContainerQueryTextWithParams - Modifies the expression of a container query.
+// Returns -  containerQuery - The resulting CSS container query rule after modification.
+func (c *CSS) SetContainerQueryTextWithParams(ctx context.Context, v *CSSSetContainerQueryTextParams) (*CSSCSSContainerQuery, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.setContainerQueryText", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			ContainerQuery *CSSCSSContainerQuery
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.ContainerQuery, nil
+}
+
+// SetContainerQueryText - Modifies the expression of a container query.
+// styleSheetId -
+// range -
+// text -
+// Returns -  containerQuery - The resulting CSS container query rule after modification.
+func (c *CSS) SetContainerQueryText(ctx context.Context, styleSheetId string, theRange *CSSSourceRange, text string) (*CSSCSSContainerQuery, error) {
+	var v CSSSetContainerQueryTextParams
+	v.StyleSheetId = styleSheetId
+	v.TheRange = theRange
+	v.Text = text
+	return c.SetContainerQueryTextWithParams(ctx, &v)
+}
+
+type CSSSetSupportsTextParams struct {
+	//
+	StyleSheetId string `json:"styleSheetId"`
+	//
+	TheRange *CSSSourceRange `json:"range"`
+	//
+	Text string `json:"text"`
+}
+
+// SetSupportsTextWithParams - Modifies the expression of a supports at-rule.
+// Returns -  supports - The resulting CSS Supports rule after modification.
+func (c *CSS) SetSupportsTextWithParams(ctx context.Context, v *CSSSetSupportsTextParams) (*CSSCSSSupports, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.setSupportsText", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			Supports *CSSCSSSupports
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.Supports, nil
+}
+
+// SetSupportsText - Modifies the expression of a supports at-rule.
+// styleSheetId -
+// range -
+// text -
+// Returns -  supports - The resulting CSS Supports rule after modification.
+func (c *CSS) SetSupportsText(ctx context.Context, styleSheetId string, theRange *CSSSourceRange, text string) (*CSSCSSSupports, error) {
+	var v CSSSetSupportsTextParams
+	v.StyleSheetId = styleSheetId
+	v.TheRange = theRange
+	v.Text = text
+	return c.SetSupportsTextWithParams(ctx, &v)
+}
+
+type CSSSetScopeTextParams struct {
+	//
+	StyleSheetId string `json:"styleSheetId"`
+	//
+	TheRange *CSSSourceRange `json:"range"`
+	//
+	Text string `json:"text"`
+}
+
+// SetScopeTextWithParams - Modifies the expression of a scope at-rule.
+// Returns -  scope - The resulting CSS Scope rule after modification.
+func (c *CSS) SetScopeTextWithParams(ctx context.Context, v *CSSSetScopeTextParams) (*CSSCSSScope, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.setScopeText", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			Scope *CSSCSSScope
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.Scope, nil
+}
+
+// SetScopeText - Modifies the expression of a scope at-rule.
+// styleSheetId -
+// range -
+// text -
+// Returns -  scope - The resulting CSS Scope rule after modification.
+func (c *CSS) SetScopeText(ctx context.Context, styleSheetId string, theRange *CSSSourceRange, text string) (*CSSCSSScope, error) {
+	var v CSSSetScopeTextParams
+	v.StyleSheetId = styleSheetId
+	v.TheRange = theRange
+	v.Text = text
+	return c.SetScopeTextWithParams(ctx, &v)
+}
+
 type CSSSetRuleSelectorParams struct {
 	//
 	StyleSheetId string `json:"styleSheetId"`
@@ -1068,7 +1330,7 @@ func (c *CSS) StartRuleUsageTracking(ctx context.Context) (*gcdmessage.ChromeRes
 	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.startRuleUsageTracking"})
 }
 
-// StopRuleUsageTracking - Stop tracking rule usage and return the list of rules that were used since last call to `takeCoverageDelta` (or since start of coverage instrumentation)
+// StopRuleUsageTracking - Stop tracking rule usage and return the list of rules that were used since last call to `takeCoverageDelta` (or since start of coverage instrumentation).
 // Returns -  ruleUsage -
 func (c *CSS) StopRuleUsageTracking(ctx context.Context) ([]*CSSRuleUsage, error) {
 	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.stopRuleUsageTracking"})
@@ -1100,7 +1362,7 @@ func (c *CSS) StopRuleUsageTracking(ctx context.Context) ([]*CSSRuleUsage, error
 	return chromeData.Result.RuleUsage, nil
 }
 
-// TakeCoverageDelta - Obtain list of rules that became used since last call to this method (or since start of coverage instrumentation)
+// TakeCoverageDelta - Obtain list of rules that became used since last call to this method (or since start of coverage instrumentation).
 // Returns -  coverage -  timestamp - Monotonically increasing time, in seconds.
 func (c *CSS) TakeCoverageDelta(ctx context.Context) ([]*CSSRuleUsage, float64, error) {
 	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "CSS.takeCoverageDelta"})

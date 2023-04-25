@@ -35,6 +35,7 @@ type InputDragDataItem struct {
 // No Description.
 type InputDragData struct {
 	Items              []*InputDragDataItem `json:"items"`              //
+	Files              []string             `json:"files,omitempty"`    // List of filenames that should be included when dropping
 	DragOperationsMask int                  `json:"dragOperationsMask"` // Bit field representing allowed drag operations. Copy = 1, Link = 2, Move = 16
 }
 
@@ -118,7 +119,7 @@ type InputDispatchKeyEventParams struct {
 	IsSystemKey bool `json:"isSystemKey,omitempty"`
 	// Whether the event was from the left or right side of the keyboard. 1=Left, 2=Right (default: 0).
 	Location int `json:"location,omitempty"`
-	// Editing commands to send with the key event (e.g., 'selectAll') (default: []). These are related to but not equal the command names used in `document.execCommand` and NSStandardKeyBindingResponding. See https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/editing/commands/editor_command_names.h for valid command names.
+	// Editing commands to send with the key event (e.g., 'selectAll') (default: []). These are related to but not equal the command names used in `document.execCommand` and NSStandardKeyBindingResponding. See https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/editing/commands/editor_command_names.h for valid command names.
 	Commands []string `json:"commands,omitempty"`
 }
 
@@ -142,7 +143,7 @@ func (c *Input) DispatchKeyEventWithParams(ctx context.Context, v *InputDispatch
 // isKeypad - Whether the event was generated from the keypad (default: false).
 // isSystemKey - Whether the event was a system key event (default: false).
 // location - Whether the event was from the left or right side of the keyboard. 1=Left, 2=Right (default: 0).
-// commands - Editing commands to send with the key event (e.g., 'selectAll') (default: []). These are related to but not equal the command names used in `document.execCommand` and NSStandardKeyBindingResponding. See https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/editing/commands/editor_command_names.h for valid command names.
+// commands - Editing commands to send with the key event (e.g., 'selectAll') (default: []). These are related to but not equal the command names used in `document.execCommand` and NSStandardKeyBindingResponding. See https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/editing/commands/editor_command_names.h for valid command names.
 func (c *Input) DispatchKeyEvent(ctx context.Context, theType string, modifiers int, timestamp float64, text string, unmodifiedText string, keyIdentifier string, code string, key string, windowsVirtualKeyCode int, nativeVirtualKeyCode int, autoRepeat bool, isKeypad bool, isSystemKey bool, location int, commands []string) (*gcdmessage.ChromeResponse, error) {
 	var v InputDispatchKeyEventParams
 	v.TheType = theType
@@ -179,6 +180,40 @@ func (c *Input) InsertText(ctx context.Context, text string) (*gcdmessage.Chrome
 	var v InputInsertTextParams
 	v.Text = text
 	return c.InsertTextWithParams(ctx, &v)
+}
+
+type InputImeSetCompositionParams struct {
+	// The text to insert
+	Text string `json:"text"`
+	// selection start
+	SelectionStart int `json:"selectionStart"`
+	// selection end
+	SelectionEnd int `json:"selectionEnd"`
+	// replacement start
+	ReplacementStart int `json:"replacementStart,omitempty"`
+	// replacement end
+	ReplacementEnd int `json:"replacementEnd,omitempty"`
+}
+
+// ImeSetCompositionWithParams - This method sets the current candidate text for ime. Use imeCommitComposition to commit the final text. Use imeSetComposition with empty string as text to cancel composition.
+func (c *Input) ImeSetCompositionWithParams(ctx context.Context, v *InputImeSetCompositionParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Input.imeSetComposition", Params: v})
+}
+
+// ImeSetComposition - This method sets the current candidate text for ime. Use imeCommitComposition to commit the final text. Use imeSetComposition with empty string as text to cancel composition.
+// text - The text to insert
+// selectionStart - selection start
+// selectionEnd - selection end
+// replacementStart - replacement start
+// replacementEnd - replacement end
+func (c *Input) ImeSetComposition(ctx context.Context, text string, selectionStart int, selectionEnd int, replacementStart int, replacementEnd int) (*gcdmessage.ChromeResponse, error) {
+	var v InputImeSetCompositionParams
+	v.Text = text
+	v.SelectionStart = selectionStart
+	v.SelectionEnd = selectionEnd
+	v.ReplacementStart = replacementStart
+	v.ReplacementEnd = replacementEnd
+	return c.ImeSetCompositionWithParams(ctx, &v)
 }
 
 type InputDispatchMouseEventParams struct {

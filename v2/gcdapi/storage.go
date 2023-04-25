@@ -11,7 +11,7 @@ import (
 
 // Usage for a storage type.
 type StorageUsageForType struct {
-	StorageType string  `json:"storageType"` // Name of storage type. enum values: appcache, cookies, file_systems, indexeddb, local_storage, shader_cache, websql, service_workers, cache_storage, all, other
+	StorageType string  `json:"storageType"` // Name of storage type. enum values: appcache, cookies, file_systems, indexeddb, local_storage, shader_cache, websql, service_workers, cache_storage, interest_groups, shared_storage, all, other
 	Usage       float64 `json:"usage"`       // Storage usage (bytes).
 }
 
@@ -21,12 +21,71 @@ type StorageTrustTokens struct {
 	Count        float64 `json:"count"`        //
 }
 
+// Ad advertising element inside an interest group.
+type StorageInterestGroupAd struct {
+	RenderUrl string `json:"renderUrl"`          //
+	Metadata  string `json:"metadata,omitempty"` //
+}
+
+// The full details of an interest group.
+type StorageInterestGroupDetails struct {
+	OwnerOrigin               string                    `json:"ownerOrigin"`                        //
+	Name                      string                    `json:"name"`                               //
+	ExpirationTime            float64                   `json:"expirationTime"`                     //
+	JoiningOrigin             string                    `json:"joiningOrigin"`                      //
+	BiddingUrl                string                    `json:"biddingUrl,omitempty"`               //
+	BiddingWasmHelperUrl      string                    `json:"biddingWasmHelperUrl,omitempty"`     //
+	UpdateUrl                 string                    `json:"updateUrl,omitempty"`                //
+	TrustedBiddingSignalsUrl  string                    `json:"trustedBiddingSignalsUrl,omitempty"` //
+	TrustedBiddingSignalsKeys []string                  `json:"trustedBiddingSignalsKeys"`          //
+	UserBiddingSignals        string                    `json:"userBiddingSignals,omitempty"`       //
+	Ads                       []*StorageInterestGroupAd `json:"ads"`                                //
+	AdComponents              []*StorageInterestGroupAd `json:"adComponents"`                       //
+}
+
+// Struct for a single key-value pair in an origin's shared storage.
+type StorageSharedStorageEntry struct {
+	Key   string `json:"key"`   //
+	Value string `json:"value"` //
+}
+
+// Details for an origin's shared storage.
+type StorageSharedStorageMetadata struct {
+	CreationTime    float64 `json:"creationTime"`    //
+	Length          int     `json:"length"`          //
+	RemainingBudget float64 `json:"remainingBudget"` //
+}
+
+// Pair of reporting metadata details for a candidate URL for `selectURL()`.
+type StorageSharedStorageReportingMetadata struct {
+	EventType    string `json:"eventType"`    //
+	ReportingUrl string `json:"reportingUrl"` //
+}
+
+// Bundles a candidate URL with its reporting metadata.
+type StorageSharedStorageUrlWithMetadata struct {
+	Url               string                                   `json:"url"`               // Spec of candidate URL.
+	ReportingMetadata []*StorageSharedStorageReportingMetadata `json:"reportingMetadata"` // Any associated reporting metadata.
+}
+
+// Bundles the parameters for shared storage access events whose presence/absence can vary according to SharedStorageAccessType.
+type StorageSharedStorageAccessParams struct {
+	ScriptSourceUrl  string                                 `json:"scriptSourceUrl,omitempty"`  // Spec of the module script URL. Present only for SharedStorageAccessType.documentAddModule.
+	OperationName    string                                 `json:"operationName,omitempty"`    // Name of the registered operation to be run. Present only for SharedStorageAccessType.documentRun and SharedStorageAccessType.documentSelectURL.
+	SerializedData   string                                 `json:"serializedData,omitempty"`   // The operation's serialized data in bytes (converted to a string). Present only for SharedStorageAccessType.documentRun and SharedStorageAccessType.documentSelectURL.
+	UrlsWithMetadata []*StorageSharedStorageUrlWithMetadata `json:"urlsWithMetadata,omitempty"` // Array of candidate URLs' specs, along with any associated metadata. Present only for SharedStorageAccessType.documentSelectURL.
+	Key              string                                 `json:"key,omitempty"`              // Key for a specific entry in an origin's shared storage. Present only for SharedStorageAccessType.documentSet, SharedStorageAccessType.documentAppend, SharedStorageAccessType.documentDelete, SharedStorageAccessType.workletSet, SharedStorageAccessType.workletAppend, SharedStorageAccessType.workletDelete, and SharedStorageAccessType.workletGet.
+	Value            string                                 `json:"value,omitempty"`            // Value for a specific entry in an origin's shared storage. Present only for SharedStorageAccessType.documentSet, SharedStorageAccessType.documentAppend, SharedStorageAccessType.workletSet, and SharedStorageAccessType.workletAppend.
+	IgnoreIfPresent  bool                                   `json:"ignoreIfPresent,omitempty"`  // Whether or not to set an entry for a key if that key is already present. Present only for SharedStorageAccessType.documentSet and SharedStorageAccessType.workletSet.
+}
+
 // A cache's contents have been modified.
 type StorageCacheStorageContentUpdatedEvent struct {
 	Method string `json:"method"`
 	Params struct {
-		Origin    string `json:"origin"`    // Origin to update.
-		CacheName string `json:"cacheName"` // Name of cache in origin.
+		Origin     string `json:"origin"`     // Origin to update.
+		StorageKey string `json:"storageKey"` // Storage key to update.
+		CacheName  string `json:"cacheName"`  // Name of cache in origin.
 	} `json:"Params,omitempty"`
 }
 
@@ -34,7 +93,8 @@ type StorageCacheStorageContentUpdatedEvent struct {
 type StorageCacheStorageListUpdatedEvent struct {
 	Method string `json:"method"`
 	Params struct {
-		Origin string `json:"origin"` // Origin to update.
+		Origin     string `json:"origin"`     // Origin to update.
+		StorageKey string `json:"storageKey"` // Storage key to update.
 	} `json:"Params,omitempty"`
 }
 
@@ -43,6 +103,7 @@ type StorageIndexedDBContentUpdatedEvent struct {
 	Method string `json:"method"`
 	Params struct {
 		Origin          string `json:"origin"`          // Origin to update.
+		StorageKey      string `json:"storageKey"`      // Storage key to update.
 		DatabaseName    string `json:"databaseName"`    // Database to update.
 		ObjectStoreName string `json:"objectStoreName"` // ObjectStore to update.
 	} `json:"Params,omitempty"`
@@ -52,7 +113,31 @@ type StorageIndexedDBContentUpdatedEvent struct {
 type StorageIndexedDBListUpdatedEvent struct {
 	Method string `json:"method"`
 	Params struct {
-		Origin string `json:"origin"` // Origin to update.
+		Origin     string `json:"origin"`     // Origin to update.
+		StorageKey string `json:"storageKey"` // Storage key to update.
+	} `json:"Params,omitempty"`
+}
+
+// One of the interest groups was accessed by the associated page.
+type StorageInterestGroupAccessedEvent struct {
+	Method string `json:"method"`
+	Params struct {
+		AccessTime  float64 `json:"accessTime"`  //
+		Type        string  `json:"type"`        //  enum values: join, leave, update, loaded, bid, win
+		OwnerOrigin string  `json:"ownerOrigin"` //
+		Name        string  `json:"name"`        //
+	} `json:"Params,omitempty"`
+}
+
+// Shared storage was accessed by the associated page. The following parameters are included in all events.
+type StorageSharedStorageAccessedEvent struct {
+	Method string `json:"method"`
+	Params struct {
+		AccessTime  float64                           `json:"accessTime"`  // Time of the access.
+		Type        string                            `json:"type"`        // Enum value indicating the Shared Storage API method invoked. enum values: documentAddModule, documentSelectURL, documentRun, documentSet, documentAppend, documentDelete, documentClear, workletSet, workletAppend, workletDelete, workletClear, workletGet, workletKeys, workletEntries, workletLength, workletRemainingBudget
+		MainFrameId string                            `json:"mainFrameId"` // DevTools Frame Token for the primary frame tree's root.
+		OwnerOrigin string                            `json:"ownerOrigin"` // Serialized origin for the context that invoked the Shared Storage API.
+		Params      *StorageSharedStorageAccessParams `json:"params"`      // The sub-parameters warapped by `params` are all optional and their presence/absence depends on `type`.
 	} `json:"Params,omitempty"`
 }
 
@@ -63,6 +148,52 @@ type Storage struct {
 func NewStorage(target gcdmessage.ChromeTargeter) *Storage {
 	c := &Storage{target: target}
 	return c
+}
+
+type StorageGetStorageKeyForFrameParams struct {
+	//
+	FrameId string `json:"frameId"`
+}
+
+// GetStorageKeyForFrameWithParams - Returns a storage key given a frame id.
+// Returns -  storageKey -
+func (c *Storage) GetStorageKeyForFrameWithParams(ctx context.Context, v *StorageGetStorageKeyForFrameParams) (string, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.getStorageKeyForFrame", Params: v})
+	if err != nil {
+		return "", err
+	}
+
+	var chromeData struct {
+		Result struct {
+			StorageKey string
+		}
+	}
+
+	if resp == nil {
+		return "", &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return "", &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return "", err
+	}
+
+	return chromeData.Result.StorageKey, nil
+}
+
+// GetStorageKeyForFrame - Returns a storage key given a frame id.
+// frameId -
+// Returns -  storageKey -
+func (c *Storage) GetStorageKeyForFrame(ctx context.Context, frameId string) (string, error) {
+	var v StorageGetStorageKeyForFrameParams
+	v.FrameId = frameId
+	return c.GetStorageKeyForFrameWithParams(ctx, &v)
 }
 
 type StorageClearDataForOriginParams struct {
@@ -85,6 +216,28 @@ func (c *Storage) ClearDataForOrigin(ctx context.Context, origin string, storage
 	v.Origin = origin
 	v.StorageTypes = storageTypes
 	return c.ClearDataForOriginWithParams(ctx, &v)
+}
+
+type StorageClearDataForStorageKeyParams struct {
+	// Storage key.
+	StorageKey string `json:"storageKey"`
+	// Comma separated list of StorageType to clear.
+	StorageTypes string `json:"storageTypes"`
+}
+
+// ClearDataForStorageKeyWithParams - Clears storage for storage key.
+func (c *Storage) ClearDataForStorageKeyWithParams(ctx context.Context, v *StorageClearDataForStorageKeyParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.clearDataForStorageKey", Params: v})
+}
+
+// ClearDataForStorageKey - Clears storage for storage key.
+// storageKey - Storage key.
+// storageTypes - Comma separated list of StorageType to clear.
+func (c *Storage) ClearDataForStorageKey(ctx context.Context, storageKey string, storageTypes string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageClearDataForStorageKeyParams
+	v.StorageKey = storageKey
+	v.StorageTypes = storageTypes
+	return c.ClearDataForStorageKeyWithParams(ctx, &v)
 }
 
 type StorageGetCookiesParams struct {
@@ -262,6 +415,24 @@ func (c *Storage) TrackCacheStorageForOrigin(ctx context.Context, origin string)
 	return c.TrackCacheStorageForOriginWithParams(ctx, &v)
 }
 
+type StorageTrackCacheStorageForStorageKeyParams struct {
+	// Storage key.
+	StorageKey string `json:"storageKey"`
+}
+
+// TrackCacheStorageForStorageKeyWithParams - Registers storage key to be notified when an update occurs to its cache storage list.
+func (c *Storage) TrackCacheStorageForStorageKeyWithParams(ctx context.Context, v *StorageTrackCacheStorageForStorageKeyParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.trackCacheStorageForStorageKey", Params: v})
+}
+
+// TrackCacheStorageForStorageKey - Registers storage key to be notified when an update occurs to its cache storage list.
+// storageKey - Storage key.
+func (c *Storage) TrackCacheStorageForStorageKey(ctx context.Context, storageKey string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageTrackCacheStorageForStorageKeyParams
+	v.StorageKey = storageKey
+	return c.TrackCacheStorageForStorageKeyWithParams(ctx, &v)
+}
+
 type StorageTrackIndexedDBForOriginParams struct {
 	// Security origin.
 	Origin string `json:"origin"`
@@ -278,6 +449,24 @@ func (c *Storage) TrackIndexedDBForOrigin(ctx context.Context, origin string) (*
 	var v StorageTrackIndexedDBForOriginParams
 	v.Origin = origin
 	return c.TrackIndexedDBForOriginWithParams(ctx, &v)
+}
+
+type StorageTrackIndexedDBForStorageKeyParams struct {
+	// Storage key.
+	StorageKey string `json:"storageKey"`
+}
+
+// TrackIndexedDBForStorageKeyWithParams - Registers storage key to be notified when an update occurs to its IndexedDB.
+func (c *Storage) TrackIndexedDBForStorageKeyWithParams(ctx context.Context, v *StorageTrackIndexedDBForStorageKeyParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.trackIndexedDBForStorageKey", Params: v})
+}
+
+// TrackIndexedDBForStorageKey - Registers storage key to be notified when an update occurs to its IndexedDB.
+// storageKey - Storage key.
+func (c *Storage) TrackIndexedDBForStorageKey(ctx context.Context, storageKey string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageTrackIndexedDBForStorageKeyParams
+	v.StorageKey = storageKey
+	return c.TrackIndexedDBForStorageKeyWithParams(ctx, &v)
 }
 
 type StorageUntrackCacheStorageForOriginParams struct {
@@ -298,6 +487,24 @@ func (c *Storage) UntrackCacheStorageForOrigin(ctx context.Context, origin strin
 	return c.UntrackCacheStorageForOriginWithParams(ctx, &v)
 }
 
+type StorageUntrackCacheStorageForStorageKeyParams struct {
+	// Storage key.
+	StorageKey string `json:"storageKey"`
+}
+
+// UntrackCacheStorageForStorageKeyWithParams - Unregisters storage key from receiving notifications for cache storage.
+func (c *Storage) UntrackCacheStorageForStorageKeyWithParams(ctx context.Context, v *StorageUntrackCacheStorageForStorageKeyParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.untrackCacheStorageForStorageKey", Params: v})
+}
+
+// UntrackCacheStorageForStorageKey - Unregisters storage key from receiving notifications for cache storage.
+// storageKey - Storage key.
+func (c *Storage) UntrackCacheStorageForStorageKey(ctx context.Context, storageKey string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageUntrackCacheStorageForStorageKeyParams
+	v.StorageKey = storageKey
+	return c.UntrackCacheStorageForStorageKeyWithParams(ctx, &v)
+}
+
 type StorageUntrackIndexedDBForOriginParams struct {
 	// Security origin.
 	Origin string `json:"origin"`
@@ -314,6 +521,24 @@ func (c *Storage) UntrackIndexedDBForOrigin(ctx context.Context, origin string) 
 	var v StorageUntrackIndexedDBForOriginParams
 	v.Origin = origin
 	return c.UntrackIndexedDBForOriginWithParams(ctx, &v)
+}
+
+type StorageUntrackIndexedDBForStorageKeyParams struct {
+	// Storage key.
+	StorageKey string `json:"storageKey"`
+}
+
+// UntrackIndexedDBForStorageKeyWithParams - Unregisters storage key from receiving notifications for IndexedDB.
+func (c *Storage) UntrackIndexedDBForStorageKeyWithParams(ctx context.Context, v *StorageUntrackIndexedDBForStorageKeyParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.untrackIndexedDBForStorageKey", Params: v})
+}
+
+// UntrackIndexedDBForStorageKey - Unregisters storage key from receiving notifications for IndexedDB.
+// storageKey - Storage key.
+func (c *Storage) UntrackIndexedDBForStorageKey(ctx context.Context, storageKey string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageUntrackIndexedDBForStorageKeyParams
+	v.StorageKey = storageKey
+	return c.UntrackIndexedDBForStorageKeyWithParams(ctx, &v)
 }
 
 // GetTrustTokens - Returns the number of stored Trust Tokens per issuer for the current browsing context.
@@ -392,4 +617,270 @@ func (c *Storage) ClearTrustTokens(ctx context.Context, issuerOrigin string) (bo
 	var v StorageClearTrustTokensParams
 	v.IssuerOrigin = issuerOrigin
 	return c.ClearTrustTokensWithParams(ctx, &v)
+}
+
+type StorageGetInterestGroupDetailsParams struct {
+	//
+	OwnerOrigin string `json:"ownerOrigin"`
+	//
+	Name string `json:"name"`
+}
+
+// GetInterestGroupDetailsWithParams - Gets details for a named interest group.
+// Returns -  details -
+func (c *Storage) GetInterestGroupDetailsWithParams(ctx context.Context, v *StorageGetInterestGroupDetailsParams) (*StorageInterestGroupDetails, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.getInterestGroupDetails", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			Details *StorageInterestGroupDetails
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.Details, nil
+}
+
+// GetInterestGroupDetails - Gets details for a named interest group.
+// ownerOrigin -
+// name -
+// Returns -  details -
+func (c *Storage) GetInterestGroupDetails(ctx context.Context, ownerOrigin string, name string) (*StorageInterestGroupDetails, error) {
+	var v StorageGetInterestGroupDetailsParams
+	v.OwnerOrigin = ownerOrigin
+	v.Name = name
+	return c.GetInterestGroupDetailsWithParams(ctx, &v)
+}
+
+type StorageSetInterestGroupTrackingParams struct {
+	//
+	Enable bool `json:"enable"`
+}
+
+// SetInterestGroupTrackingWithParams - Enables/Disables issuing of interestGroupAccessed events.
+func (c *Storage) SetInterestGroupTrackingWithParams(ctx context.Context, v *StorageSetInterestGroupTrackingParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.setInterestGroupTracking", Params: v})
+}
+
+// SetInterestGroupTracking - Enables/Disables issuing of interestGroupAccessed events.
+// enable -
+func (c *Storage) SetInterestGroupTracking(ctx context.Context, enable bool) (*gcdmessage.ChromeResponse, error) {
+	var v StorageSetInterestGroupTrackingParams
+	v.Enable = enable
+	return c.SetInterestGroupTrackingWithParams(ctx, &v)
+}
+
+type StorageGetSharedStorageMetadataParams struct {
+	//
+	OwnerOrigin string `json:"ownerOrigin"`
+}
+
+// GetSharedStorageMetadataWithParams - Gets metadata for an origin's shared storage.
+// Returns -  metadata -
+func (c *Storage) GetSharedStorageMetadataWithParams(ctx context.Context, v *StorageGetSharedStorageMetadataParams) (*StorageSharedStorageMetadata, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.getSharedStorageMetadata", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			Metadata *StorageSharedStorageMetadata
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.Metadata, nil
+}
+
+// GetSharedStorageMetadata - Gets metadata for an origin's shared storage.
+// ownerOrigin -
+// Returns -  metadata -
+func (c *Storage) GetSharedStorageMetadata(ctx context.Context, ownerOrigin string) (*StorageSharedStorageMetadata, error) {
+	var v StorageGetSharedStorageMetadataParams
+	v.OwnerOrigin = ownerOrigin
+	return c.GetSharedStorageMetadataWithParams(ctx, &v)
+}
+
+type StorageGetSharedStorageEntriesParams struct {
+	//
+	OwnerOrigin string `json:"ownerOrigin"`
+}
+
+// GetSharedStorageEntriesWithParams - Gets the entries in an given origin's shared storage.
+// Returns -  entries -
+func (c *Storage) GetSharedStorageEntriesWithParams(ctx context.Context, v *StorageGetSharedStorageEntriesParams) ([]*StorageSharedStorageEntry, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.getSharedStorageEntries", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			Entries []*StorageSharedStorageEntry
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.Entries, nil
+}
+
+// GetSharedStorageEntries - Gets the entries in an given origin's shared storage.
+// ownerOrigin -
+// Returns -  entries -
+func (c *Storage) GetSharedStorageEntries(ctx context.Context, ownerOrigin string) ([]*StorageSharedStorageEntry, error) {
+	var v StorageGetSharedStorageEntriesParams
+	v.OwnerOrigin = ownerOrigin
+	return c.GetSharedStorageEntriesWithParams(ctx, &v)
+}
+
+type StorageSetSharedStorageEntryParams struct {
+	//
+	OwnerOrigin string `json:"ownerOrigin"`
+	//
+	Key string `json:"key"`
+	//
+	Value string `json:"value"`
+	// If `ignoreIfPresent` is included and true, then only sets the entry if `key` doesn't already exist.
+	IgnoreIfPresent bool `json:"ignoreIfPresent,omitempty"`
+}
+
+// SetSharedStorageEntryWithParams - Sets entry with `key` and `value` for a given origin's shared storage.
+func (c *Storage) SetSharedStorageEntryWithParams(ctx context.Context, v *StorageSetSharedStorageEntryParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.setSharedStorageEntry", Params: v})
+}
+
+// SetSharedStorageEntry - Sets entry with `key` and `value` for a given origin's shared storage.
+// ownerOrigin -
+// key -
+// value -
+// ignoreIfPresent - If `ignoreIfPresent` is included and true, then only sets the entry if `key` doesn't already exist.
+func (c *Storage) SetSharedStorageEntry(ctx context.Context, ownerOrigin string, key string, value string, ignoreIfPresent bool) (*gcdmessage.ChromeResponse, error) {
+	var v StorageSetSharedStorageEntryParams
+	v.OwnerOrigin = ownerOrigin
+	v.Key = key
+	v.Value = value
+	v.IgnoreIfPresent = ignoreIfPresent
+	return c.SetSharedStorageEntryWithParams(ctx, &v)
+}
+
+type StorageDeleteSharedStorageEntryParams struct {
+	//
+	OwnerOrigin string `json:"ownerOrigin"`
+	//
+	Key string `json:"key"`
+}
+
+// DeleteSharedStorageEntryWithParams - Deletes entry for `key` (if it exists) for a given origin's shared storage.
+func (c *Storage) DeleteSharedStorageEntryWithParams(ctx context.Context, v *StorageDeleteSharedStorageEntryParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.deleteSharedStorageEntry", Params: v})
+}
+
+// DeleteSharedStorageEntry - Deletes entry for `key` (if it exists) for a given origin's shared storage.
+// ownerOrigin -
+// key -
+func (c *Storage) DeleteSharedStorageEntry(ctx context.Context, ownerOrigin string, key string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageDeleteSharedStorageEntryParams
+	v.OwnerOrigin = ownerOrigin
+	v.Key = key
+	return c.DeleteSharedStorageEntryWithParams(ctx, &v)
+}
+
+type StorageClearSharedStorageEntriesParams struct {
+	//
+	OwnerOrigin string `json:"ownerOrigin"`
+}
+
+// ClearSharedStorageEntriesWithParams - Clears all entries for a given origin's shared storage.
+func (c *Storage) ClearSharedStorageEntriesWithParams(ctx context.Context, v *StorageClearSharedStorageEntriesParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.clearSharedStorageEntries", Params: v})
+}
+
+// ClearSharedStorageEntries - Clears all entries for a given origin's shared storage.
+// ownerOrigin -
+func (c *Storage) ClearSharedStorageEntries(ctx context.Context, ownerOrigin string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageClearSharedStorageEntriesParams
+	v.OwnerOrigin = ownerOrigin
+	return c.ClearSharedStorageEntriesWithParams(ctx, &v)
+}
+
+type StorageResetSharedStorageBudgetParams struct {
+	//
+	OwnerOrigin string `json:"ownerOrigin"`
+}
+
+// ResetSharedStorageBudgetWithParams - Resets the budget for `ownerOrigin` by clearing all budget withdrawals.
+func (c *Storage) ResetSharedStorageBudgetWithParams(ctx context.Context, v *StorageResetSharedStorageBudgetParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.resetSharedStorageBudget", Params: v})
+}
+
+// ResetSharedStorageBudget - Resets the budget for `ownerOrigin` by clearing all budget withdrawals.
+// ownerOrigin -
+func (c *Storage) ResetSharedStorageBudget(ctx context.Context, ownerOrigin string) (*gcdmessage.ChromeResponse, error) {
+	var v StorageResetSharedStorageBudgetParams
+	v.OwnerOrigin = ownerOrigin
+	return c.ResetSharedStorageBudgetWithParams(ctx, &v)
+}
+
+type StorageSetSharedStorageTrackingParams struct {
+	//
+	Enable bool `json:"enable"`
+}
+
+// SetSharedStorageTrackingWithParams - Enables/disables issuing of sharedStorageAccessed events.
+func (c *Storage) SetSharedStorageTrackingWithParams(ctx context.Context, v *StorageSetSharedStorageTrackingParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Storage.setSharedStorageTracking", Params: v})
+}
+
+// SetSharedStorageTracking - Enables/disables issuing of sharedStorageAccessed events.
+// enable -
+func (c *Storage) SetSharedStorageTracking(ctx context.Context, enable bool) (*gcdmessage.ChromeResponse, error) {
+	var v StorageSetSharedStorageTrackingParams
+	v.Enable = enable
+	return c.SetSharedStorageTrackingWithParams(ctx, &v)
 }

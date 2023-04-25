@@ -18,6 +18,8 @@ type WebAuthnVirtualAuthenticatorOptions struct {
 	HasUserVerification         bool   `json:"hasUserVerification,omitempty"`         // Defaults to false.
 	HasLargeBlob                bool   `json:"hasLargeBlob,omitempty"`                // If set to true, the authenticator will support the largeBlob extension. https://w3c.github.io/webauthn#largeBlob Defaults to false.
 	HasCredBlob                 bool   `json:"hasCredBlob,omitempty"`                 // If set to true, the authenticator will support the credBlob extension. https://fidoalliance.org/specs/fido-v2.1-rd-20201208/fido-client-to-authenticator-protocol-v2.1-rd-20201208.html#sctn-credBlob-extension Defaults to false.
+	HasMinPinLength             bool   `json:"hasMinPinLength,omitempty"`             // If set to true, the authenticator will support the minPinLength extension. https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-minpinlength-extension Defaults to false.
+	HasPrf                      bool   `json:"hasPrf,omitempty"`                      // If set to true, the authenticator will support the prf extension. https://w3c.github.io/webauthn/#prf-extension Defaults to false.
 	AutomaticPresenceSimulation bool   `json:"automaticPresenceSimulation,omitempty"` // If set to true, tests of user presence will succeed immediately. Otherwise, they will not be resolved. Defaults to true.
 	IsUserVerified              bool   `json:"isUserVerified,omitempty"`              // Sets whether User Verification succeeds or fails for an authenticator. Defaults to false.
 }
@@ -33,6 +35,24 @@ type WebAuthnCredential struct {
 	LargeBlob            string `json:"largeBlob,omitempty"`  // The large blob associated with the credential. See https://w3c.github.io/webauthn/#sctn-large-blob-extension (Encoded as a base64 string when passed over JSON)
 }
 
+// Triggered when a credential is added to an authenticator.
+type WebAuthnCredentialAddedEvent struct {
+	Method string `json:"method"`
+	Params struct {
+		AuthenticatorId string              `json:"authenticatorId"` //
+		Credential      *WebAuthnCredential `json:"credential"`      //
+	} `json:"Params,omitempty"`
+}
+
+// Triggered when a credential is used in a webauthn assertion.
+type WebAuthnCredentialAssertedEvent struct {
+	Method string `json:"method"`
+	Params struct {
+		AuthenticatorId string              `json:"authenticatorId"` //
+		Credential      *WebAuthnCredential `json:"credential"`      //
+	} `json:"Params,omitempty"`
+}
+
 type WebAuthn struct {
 	target gcdmessage.ChromeTargeter
 }
@@ -42,9 +62,22 @@ func NewWebAuthn(target gcdmessage.ChromeTargeter) *WebAuthn {
 	return c
 }
 
-// Enable the WebAuthn domain and start intercepting credential storage and retrieval with a virtual authenticator.
-func (c *WebAuthn) Enable(ctx context.Context) (*gcdmessage.ChromeResponse, error) {
-	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "WebAuthn.enable"})
+type WebAuthnEnableParams struct {
+	// Whether to enable the WebAuthn user interface. Enabling the UI is recommended for debugging and demo purposes, as it is closer to the real experience. Disabling the UI is recommended for automated testing. Supported at the embedder's discretion if UI is available. Defaults to false.
+	EnableUI bool `json:"enableUI,omitempty"`
+}
+
+// EnableWithParams - Enable the WebAuthn domain and start intercepting credential storage and retrieval with a virtual authenticator.
+func (c *WebAuthn) EnableWithParams(ctx context.Context, v *WebAuthnEnableParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "WebAuthn.enable", Params: v})
+}
+
+// Enable - Enable the WebAuthn domain and start intercepting credential storage and retrieval with a virtual authenticator.
+// enableUI - Whether to enable the WebAuthn user interface. Enabling the UI is recommended for debugging and demo purposes, as it is closer to the real experience. Disabling the UI is recommended for automated testing. Supported at the embedder's discretion if UI is available. Defaults to false.
+func (c *WebAuthn) Enable(ctx context.Context, enableUI bool) (*gcdmessage.ChromeResponse, error) {
+	var v WebAuthnEnableParams
+	v.EnableUI = enableUI
+	return c.EnableWithParams(ctx, &v)
 }
 
 // Disable the WebAuthn domain.
@@ -96,6 +129,36 @@ func (c *WebAuthn) AddVirtualAuthenticator(ctx context.Context, options *WebAuth
 	var v WebAuthnAddVirtualAuthenticatorParams
 	v.Options = options
 	return c.AddVirtualAuthenticatorWithParams(ctx, &v)
+}
+
+type WebAuthnSetResponseOverrideBitsParams struct {
+	//
+	AuthenticatorId string `json:"authenticatorId"`
+	// If isBogusSignature is set, overrides the signature in the authenticator response to be zero. Defaults to false.
+	IsBogusSignature bool `json:"isBogusSignature,omitempty"`
+	// If isBadUV is set, overrides the UV bit in the flags in the authenticator response to be zero. Defaults to false.
+	IsBadUV bool `json:"isBadUV,omitempty"`
+	// If isBadUP is set, overrides the UP bit in the flags in the authenticator response to be zero. Defaults to false.
+	IsBadUP bool `json:"isBadUP,omitempty"`
+}
+
+// SetResponseOverrideBitsWithParams - Resets parameters isBogusSignature, isBadUV, isBadUP to false if they are not present.
+func (c *WebAuthn) SetResponseOverrideBitsWithParams(ctx context.Context, v *WebAuthnSetResponseOverrideBitsParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "WebAuthn.setResponseOverrideBits", Params: v})
+}
+
+// SetResponseOverrideBits - Resets parameters isBogusSignature, isBadUV, isBadUP to false if they are not present.
+// authenticatorId -
+// isBogusSignature - If isBogusSignature is set, overrides the signature in the authenticator response to be zero. Defaults to false.
+// isBadUV - If isBadUV is set, overrides the UV bit in the flags in the authenticator response to be zero. Defaults to false.
+// isBadUP - If isBadUP is set, overrides the UP bit in the flags in the authenticator response to be zero. Defaults to false.
+func (c *WebAuthn) SetResponseOverrideBits(ctx context.Context, authenticatorId string, isBogusSignature bool, isBadUV bool, isBadUP bool) (*gcdmessage.ChromeResponse, error) {
+	var v WebAuthnSetResponseOverrideBitsParams
+	v.AuthenticatorId = authenticatorId
+	v.IsBogusSignature = isBogusSignature
+	v.IsBadUV = isBadUV
+	v.IsBadUP = isBadUP
+	return c.SetResponseOverrideBitsWithParams(ctx, &v)
 }
 
 type WebAuthnRemoveVirtualAuthenticatorParams struct {

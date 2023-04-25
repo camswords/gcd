@@ -36,7 +36,8 @@ type DOMNode struct {
 	XmlVersion        string            `json:"xmlVersion,omitempty"`        // `Document`'s XML version in case of XML documents.
 	Name              string            `json:"name,omitempty"`              // `Attr`'s name.
 	Value             string            `json:"value,omitempty"`             // `Attr`'s value.
-	PseudoType        string            `json:"pseudoType,omitempty"`        // Pseudo element type for this node. enum values: first-line, first-letter, before, after, marker, backdrop, selection, target-text, spelling-error, grammar-error, first-line-inherited, scrollbar, scrollbar-thumb, scrollbar-button, scrollbar-track, scrollbar-track-piece, scrollbar-corner, resizer, input-list-button
+	PseudoType        string            `json:"pseudoType,omitempty"`        // Pseudo element type for this node. enum values: first-line, first-letter, before, after, marker, backdrop, selection, target-text, spelling-error, grammar-error, highlight, first-line-inherited, scrollbar, scrollbar-thumb, scrollbar-button, scrollbar-track, scrollbar-track-piece, scrollbar-corner, resizer, input-list-button, view-transition, view-transition-group, view-transition-image-pair, view-transition-old, view-transition-new
+	PseudoIdentifier  string            `json:"pseudoIdentifier,omitempty"`  // Pseudo element identifier for this node. Only present if there is a valid pseudoType.
 	ShadowRootType    string            `json:"shadowRootType,omitempty"`    // Shadow root type. enum values: user-agent, open, closed
 	FrameId           string            `json:"frameId,omitempty"`           // Frame ID for frame owner elements.
 	ContentDocument   *DOMNode          `json:"contentDocument,omitempty"`   // Content document for frame owner elements.
@@ -47,6 +48,7 @@ type DOMNode struct {
 	DistributedNodes  []*DOMBackendNode `json:"distributedNodes,omitempty"`  // Distributed nodes for given insertion point.
 	IsSVG             bool              `json:"isSVG,omitempty"`             // Whether the node is SVG.
 	CompatibilityMode string            `json:"compatibilityMode,omitempty"` //  enum values: QuirksMode, LimitedQuirksMode, NoQuirksMode
+	AssignedSlot      *DOMBackendNode   `json:"assignedSlot,omitempty"`      //
 }
 
 // A structure holding an RGBA color.
@@ -131,7 +133,7 @@ type DOMChildNodeInsertedEvent struct {
 	Method string `json:"method"`
 	Params struct {
 		ParentNodeId   int      `json:"parentNodeId"`   // Id of the node that has changed.
-		PreviousNodeId int      `json:"previousNodeId"` // If of the previous siblint.
+		PreviousNodeId int      `json:"previousNodeId"` // Id of the previous sibling.
 		Node           *DOMNode `json:"node"`           // Inserted node data.
 	} `json:"Params,omitempty"`
 }
@@ -431,9 +433,22 @@ func (c *DOM) DiscardSearchResults(ctx context.Context, searchId string) (*gcdme
 	return c.DiscardSearchResultsWithParams(ctx, &v)
 }
 
-// Enables DOM agent for the given page.
-func (c *DOM) Enable(ctx context.Context) (*gcdmessage.ChromeResponse, error) {
-	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "DOM.enable"})
+type DOMEnableParams struct {
+	// Whether to include whitespaces in the children array of returned Nodes.
+	IncludeWhitespace string `json:"includeWhitespace,omitempty"`
+}
+
+// EnableWithParams - Enables DOM agent for the given page.
+func (c *DOM) EnableWithParams(ctx context.Context, v *DOMEnableParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "DOM.enable", Params: v})
+}
+
+// Enable - Enables DOM agent for the given page.
+// includeWhitespace - Whether to include whitespaces in the children array of returned Nodes.
+func (c *DOM) Enable(ctx context.Context, includeWhitespace string) (*gcdmessage.ChromeResponse, error) {
+	var v DOMEnableParams
+	v.IncludeWhitespace = includeWhitespace
+	return c.EnableWithParams(ctx, &v)
 }
 
 type DOMFocusParams struct {
@@ -623,7 +638,7 @@ type DOMGetDocumentParams struct {
 	Pierce bool `json:"pierce,omitempty"`
 }
 
-// GetDocumentWithParams - Returns the root DOM node (and optionally the subtree) to the caller.
+// GetDocumentWithParams - Returns the root DOM node (and optionally the subtree) to the caller. Implicitly enables the DOM domain events for the current target.
 // Returns -  root - Resulting node.
 func (c *DOM) GetDocumentWithParams(ctx context.Context, v *DOMGetDocumentParams) (*DOMNode, error) {
 	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "DOM.getDocument", Params: v})
@@ -655,7 +670,7 @@ func (c *DOM) GetDocumentWithParams(ctx context.Context, v *DOMGetDocumentParams
 	return chromeData.Result.Root, nil
 }
 
-// GetDocument - Returns the root DOM node (and optionally the subtree) to the caller.
+// GetDocument - Returns the root DOM node (and optionally the subtree) to the caller. Implicitly enables the DOM domain events for the current target.
 // depth - The maximum depth at which children should be retrieved, defaults to 1. Use -1 for the entire subtree or provide an integer larger than 0.
 // pierce - Whether or not iframes and shadow roots should be traversed when returning the subtree (default is false).
 // Returns -  root - Resulting node.
@@ -1301,6 +1316,38 @@ func (c *DOM) QuerySelectorAll(ctx context.Context, nodeId int, selector string)
 	return c.QuerySelectorAllWithParams(ctx, &v)
 }
 
+// GetTopLayerElements - Returns NodeIds of current top layer elements. Top layer is rendered closest to the user within a viewport, therefore its elements always appear on top of all other content.
+// Returns -  nodeIds - NodeIds of top layer elements
+func (c *DOM) GetTopLayerElements(ctx context.Context) ([]int, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "DOM.getTopLayerElements"})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			NodeIds []int
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.NodeIds, nil
+}
+
 // Re-does the last undone action.
 func (c *DOM) Redo(ctx context.Context) (*gcdmessage.ChromeResponse, error) {
 	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "DOM.redo"})
@@ -1830,4 +1877,108 @@ func (c *DOM) GetFrameOwner(ctx context.Context, frameId string) (int, int, erro
 	var v DOMGetFrameOwnerParams
 	v.FrameId = frameId
 	return c.GetFrameOwnerWithParams(ctx, &v)
+}
+
+type DOMGetContainerForNodeParams struct {
+	//
+	NodeId int `json:"nodeId"`
+	//
+	ContainerName string `json:"containerName,omitempty"`
+	//  enum values: Horizontal, Vertical, Both
+	PhysicalAxes string `json:"physicalAxes,omitempty"`
+	//  enum values: Inline, Block, Both
+	LogicalAxes string `json:"logicalAxes,omitempty"`
+}
+
+// GetContainerForNodeWithParams - Returns the query container of the given node based on container query conditions: containerName, physical, and logical axes. If no axes are provided, the style container is returned, which is the direct parent or the closest element with a matching container-name.
+// Returns -  nodeId - The container node for the given node, or null if not found.
+func (c *DOM) GetContainerForNodeWithParams(ctx context.Context, v *DOMGetContainerForNodeParams) (int, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "DOM.getContainerForNode", Params: v})
+	if err != nil {
+		return 0, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			NodeId int
+		}
+	}
+
+	if resp == nil {
+		return 0, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return 0, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return 0, err
+	}
+
+	return chromeData.Result.NodeId, nil
+}
+
+// GetContainerForNode - Returns the query container of the given node based on container query conditions: containerName, physical, and logical axes. If no axes are provided, the style container is returned, which is the direct parent or the closest element with a matching container-name.
+// nodeId -
+// containerName -
+// physicalAxes -  enum values: Horizontal, Vertical, Both
+// logicalAxes -  enum values: Inline, Block, Both
+// Returns -  nodeId - The container node for the given node, or null if not found.
+func (c *DOM) GetContainerForNode(ctx context.Context, nodeId int, containerName string, physicalAxes string, logicalAxes string) (int, error) {
+	var v DOMGetContainerForNodeParams
+	v.NodeId = nodeId
+	v.ContainerName = containerName
+	v.PhysicalAxes = physicalAxes
+	v.LogicalAxes = logicalAxes
+	return c.GetContainerForNodeWithParams(ctx, &v)
+}
+
+type DOMGetQueryingDescendantsForContainerParams struct {
+	// Id of the container node to find querying descendants from.
+	NodeId int `json:"nodeId"`
+}
+
+// GetQueryingDescendantsForContainerWithParams - Returns the descendants of a container query container that have container queries against this container.
+// Returns -  nodeIds - Descendant nodes with container queries against the given container.
+func (c *DOM) GetQueryingDescendantsForContainerWithParams(ctx context.Context, v *DOMGetQueryingDescendantsForContainerParams) ([]int, error) {
+	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "DOM.getQueryingDescendantsForContainer", Params: v})
+	if err != nil {
+		return nil, err
+	}
+
+	var chromeData struct {
+		Result struct {
+			NodeIds []int
+		}
+	}
+
+	if resp == nil {
+		return nil, &gcdmessage.ChromeEmptyResponseErr{}
+	}
+
+	// test if error first
+	cerr := &gcdmessage.ChromeErrorResponse{}
+	json.Unmarshal(resp.Data, cerr)
+	if cerr != nil && cerr.Error != nil {
+		return nil, &gcdmessage.ChromeRequestErr{Resp: cerr}
+	}
+
+	if err := json.Unmarshal(resp.Data, &chromeData); err != nil {
+		return nil, err
+	}
+
+	return chromeData.Result.NodeIds, nil
+}
+
+// GetQueryingDescendantsForContainer - Returns the descendants of a container query container that have container queries against this container.
+// nodeId - Id of the container node to find querying descendants from.
+// Returns -  nodeIds - Descendant nodes with container queries against the given container.
+func (c *DOM) GetQueryingDescendantsForContainer(ctx context.Context, nodeId int) ([]int, error) {
+	var v DOMGetQueryingDescendantsForContainerParams
+	v.NodeId = nodeId
+	return c.GetQueryingDescendantsForContainerWithParams(ctx, &v)
 }

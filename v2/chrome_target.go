@@ -1,7 +1,7 @@
 /*
 The MIT License (MIT)
 
-Copyright (c) 2020 isaac dawson
+Copyright (c) 2021 isaac dawson
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -74,7 +74,6 @@ type ChromeTarget struct {
 	// Chrome Debugger Domains
 	Accessibility        *gcdapi.Accessibility
 	Animation            *gcdapi.Animation
-	ApplicationCache     *gcdapi.ApplicationCache // application cache API
 	Audits               *gcdapi.Audits
 	BackgroundService    *gcdapi.BackgroundService
 	Browser              *gcdapi.Browser
@@ -118,6 +117,7 @@ type ChromeTarget struct {
 	Media                *gcdapi.Media
 	WebAudio             *gcdapi.WebAudio
 	WebAuthn             *gcdapi.WebAuthn
+	EventBreakpoints     *gcdapi.EventBreakpoints
 
 	Target          *TargetInfo                 // The target information see, TargetInfo
 	sendCh          chan *gcdmessage.Message    // The channel used for API components to send back to use
@@ -162,7 +162,6 @@ func openChromeTarget(debugger *Gcd, target *TargetInfo, observer observer.Messa
 func (c *ChromeTarget) Init() {
 	c.Accessibility = gcdapi.NewAccessibility(c)
 	c.Animation = gcdapi.NewAnimation(c)
-	c.ApplicationCache = gcdapi.NewApplicationCache(c)
 	c.Audits = gcdapi.NewAudits(c)
 	c.Browser = gcdapi.NewBrowser(c)
 	c.BackgroundService = gcdapi.NewBackgroundService(c)
@@ -207,6 +206,7 @@ func (c *ChromeTarget) Init() {
 	c.WebAudio = gcdapi.NewWebAudio(c)
 	c.WebAuthn = gcdapi.NewWebAuthn(c)
 	c.BackgroundService = gcdapi.NewBackgroundService(c)
+	c.EventBreakpoints = gcdapi.NewEventBreakpoints(c)
 }
 
 // clean up this target

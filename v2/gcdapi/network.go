@@ -50,6 +50,7 @@ type NetworkRequest struct {
 	ReferrerPolicy   string                   `json:"referrerPolicy"`             // The referrer policy of the request, as defined in https://www.w3.org/TR/referrer-policy/
 	IsLinkPreload    bool                     `json:"isLinkPreload,omitempty"`    // Whether is loaded via link preload.
 	TrustTokenParams *NetworkTrustTokenParams `json:"trustTokenParams,omitempty"` // Set for requests when the TrustToken API is used. Contains the parameters passed by the developer (e.g. via "fetch") as understood by the backend.
+	IsSameSite       bool                     `json:"isSameSite,omitempty"`       // True if this resource request is considered to be the 'same site' as the request correspondinfg to the main frame.
 }
 
 // Details of a signed certificate timestamp (SCT).
@@ -58,7 +59,7 @@ type NetworkSignedCertificateTimestamp struct {
 	Origin             string  `json:"origin"`             // Origin.
 	LogDescription     string  `json:"logDescription"`     // Log name / description.
 	LogId              string  `json:"logId"`              // Log ID.
-	Timestamp          float64 `json:"timestamp"`          // Issuance date.
+	Timestamp          float64 `json:"timestamp"`          // Issuance date. Unlike TimeSinceEpoch, this contains the number of milliseconds since January 1, 1970, UTC, not the number of seconds.
 	HashAlgorithm      string  `json:"hashAlgorithm"`      // Hash algorithm.
 	SignatureAlgorithm string  `json:"signatureAlgorithm"` // Signature algorithm.
 	SignatureData      string  `json:"signatureData"`      // Signature data.
@@ -66,31 +67,33 @@ type NetworkSignedCertificateTimestamp struct {
 
 // Security details about a request.
 type NetworkSecurityDetails struct {
-	Protocol                          string                               `json:"protocol"`                          // Protocol name (e.g. "TLS 1.2" or "QUIC").
-	KeyExchange                       string                               `json:"keyExchange"`                       // Key Exchange used by the connection, or the empty string if not applicable.
-	KeyExchangeGroup                  string                               `json:"keyExchangeGroup,omitempty"`        // (EC)DH group used by the connection, if applicable.
-	Cipher                            string                               `json:"cipher"`                            // Cipher name.
-	Mac                               string                               `json:"mac,omitempty"`                     // TLS MAC. Note that AEAD ciphers do not have separate MACs.
-	CertificateId                     int                                  `json:"certificateId"`                     // Certificate ID value.
-	SubjectName                       string                               `json:"subjectName"`                       // Certificate subject name.
-	SanList                           []string                             `json:"sanList"`                           // Subject Alternative Name (SAN) DNS names and IP addresses.
-	Issuer                            string                               `json:"issuer"`                            // Name of the issuing CA.
-	ValidFrom                         float64                              `json:"validFrom"`                         // Certificate valid from date.
-	ValidTo                           float64                              `json:"validTo"`                           // Certificate valid to (expiration) date
-	SignedCertificateTimestampList    []*NetworkSignedCertificateTimestamp `json:"signedCertificateTimestampList"`    // List of signed certificate timestamps (SCTs).
-	CertificateTransparencyCompliance string                               `json:"certificateTransparencyCompliance"` // Whether the request complied with Certificate Transparency policy enum values: unknown, not-compliant, compliant
+	Protocol                          string                               `json:"protocol"`                           // Protocol name (e.g. "TLS 1.2" or "QUIC").
+	KeyExchange                       string                               `json:"keyExchange"`                        // Key Exchange used by the connection, or the empty string if not applicable.
+	KeyExchangeGroup                  string                               `json:"keyExchangeGroup,omitempty"`         // (EC)DH group used by the connection, if applicable.
+	Cipher                            string                               `json:"cipher"`                             // Cipher name.
+	Mac                               string                               `json:"mac,omitempty"`                      // TLS MAC. Note that AEAD ciphers do not have separate MACs.
+	CertificateId                     int                                  `json:"certificateId"`                      // Certificate ID value.
+	SubjectName                       string                               `json:"subjectName"`                        // Certificate subject name.
+	SanList                           []string                             `json:"sanList"`                            // Subject Alternative Name (SAN) DNS names and IP addresses.
+	Issuer                            string                               `json:"issuer"`                             // Name of the issuing CA.
+	ValidFrom                         float64                              `json:"validFrom"`                          // Certificate valid from date.
+	ValidTo                           float64                              `json:"validTo"`                            // Certificate valid to (expiration) date
+	SignedCertificateTimestampList    []*NetworkSignedCertificateTimestamp `json:"signedCertificateTimestampList"`     // List of signed certificate timestamps (SCTs).
+	CertificateTransparencyCompliance string                               `json:"certificateTransparencyCompliance"`  // Whether the request complied with Certificate Transparency policy enum values: unknown, not-compliant, compliant
+	ServerSignatureAlgorithm          int                                  `json:"serverSignatureAlgorithm,omitempty"` // The signature algorithm used by the server in the TLS server signature, represented as a TLS SignatureScheme code point. Omitted if not applicable or not known.
+	EncryptedClientHello              bool                                 `json:"encryptedClientHello"`               // Whether the connection used Encrypted ClientHello
 }
 
 // No Description.
 type NetworkCorsErrorStatus struct {
-	CorsError       string `json:"corsError"`       //  enum values: DisallowedByMode, InvalidResponse, WildcardOriginNotAllowed, MissingAllowOriginHeader, MultipleAllowOriginValues, InvalidAllowOriginValue, AllowOriginMismatch, InvalidAllowCredentials, CorsDisabledScheme, PreflightInvalidStatus, PreflightDisallowedRedirect, PreflightWildcardOriginNotAllowed, PreflightMissingAllowOriginHeader, PreflightMultipleAllowOriginValues, PreflightInvalidAllowOriginValue, PreflightAllowOriginMismatch, PreflightInvalidAllowCredentials, PreflightMissingAllowExternal, PreflightInvalidAllowExternal, InvalidAllowMethodsPreflightResponse, InvalidAllowHeadersPreflightResponse, MethodDisallowedByPreflightResponse, HeaderDisallowedByPreflightResponse, RedirectContainsCredentials, InsecurePrivateNetwork, NoCorsRedirectModeNotFollow
+	CorsError       string `json:"corsError"`       //  enum values: DisallowedByMode, InvalidResponse, WildcardOriginNotAllowed, MissingAllowOriginHeader, MultipleAllowOriginValues, InvalidAllowOriginValue, AllowOriginMismatch, InvalidAllowCredentials, CorsDisabledScheme, PreflightInvalidStatus, PreflightDisallowedRedirect, PreflightWildcardOriginNotAllowed, PreflightMissingAllowOriginHeader, PreflightMultipleAllowOriginValues, PreflightInvalidAllowOriginValue, PreflightAllowOriginMismatch, PreflightInvalidAllowCredentials, PreflightMissingAllowExternal, PreflightInvalidAllowExternal, PreflightMissingAllowPrivateNetwork, PreflightInvalidAllowPrivateNetwork, InvalidAllowMethodsPreflightResponse, InvalidAllowHeadersPreflightResponse, MethodDisallowedByPreflightResponse, HeaderDisallowedByPreflightResponse, RedirectContainsCredentials, InsecurePrivateNetwork, InvalidPrivateNetworkAccess, UnexpectedPrivateNetworkAccess, NoCorsRedirectModeNotFollow
 	FailedParameter string `json:"failedParameter"` //
 }
 
 // Determines what type of Trust Token operation is executed and depending on the type, some additional parameters. The values are specified in third_party/blink/renderer/core/fetch/trust_token.idl.
 type NetworkTrustTokenParams struct {
-	Type          string   `json:"type"`              //  enum values: Issuance, Redemption, Signing
-	RefreshPolicy string   `json:"refreshPolicy"`     // Only set for "token-redemption" type and determine whether to request a fresh SRR or use a still valid cached SRR.
+	Operation     string   `json:"operation"`         //  enum values: Issuance, Redemption, Signing
+	RefreshPolicy string   `json:"refreshPolicy"`     // Only set for "token-redemption" operation and determine whether to request a fresh SRR or use a still valid cached SRR.
 	Issuers       []string `json:"issuers,omitempty"` // Origins of issuers from whom to request tokens or redemption records.
 }
 
@@ -100,10 +103,10 @@ type NetworkResponse struct {
 	Status                      int                     `json:"status"`                                // HTTP response status code.
 	StatusText                  string                  `json:"statusText"`                            // HTTP response status text.
 	Headers                     map[string]interface{}  `json:"headers"`                               // HTTP response headers.
-	HeadersText                 string                  `json:"headersText,omitempty"`                 // HTTP response headers text.
+	HeadersText                 string                  `json:"headersText,omitempty"`                 // HTTP response headers text. This has been replaced by the headers in Network.responseReceivedExtraInfo.
 	MimeType                    string                  `json:"mimeType"`                              // Resource mimeType as determined by the browser.
 	RequestHeaders              map[string]interface{}  `json:"requestHeaders,omitempty"`              // Refined HTTP request headers that were actually transmitted over the network.
-	RequestHeadersText          string                  `json:"requestHeadersText,omitempty"`          // HTTP request headers text.
+	RequestHeadersText          string                  `json:"requestHeadersText,omitempty"`          // HTTP request headers text. This has been replaced by the headers in Network.requestWillBeSentExtraInfo.
 	ConnectionReused            bool                    `json:"connectionReused"`                      // Specifies whether physical connection was actually reused for this request.
 	ConnectionId                float64                 `json:"connectionId"`                          // Physical connection id that was actually used for this request.
 	RemoteIPAddress             string                  `json:"remoteIPAddress,omitempty"`             // Remote IP address.
@@ -117,6 +120,7 @@ type NetworkResponse struct {
 	ResponseTime                float64                 `json:"responseTime,omitempty"`                // The time at which the returned response was generated.
 	CacheStorageCacheName       string                  `json:"cacheStorageCacheName,omitempty"`       // Cache Storage Cache Name.
 	Protocol                    string                  `json:"protocol,omitempty"`                    // Protocol used to fetch this request.
+	AlternateProtocolUsage      string                  `json:"alternateProtocolUsage,omitempty"`      // The reason why Chrome uses a specific transport protocol for HTTP semantics. enum values: alternativeJobWonWithoutRace, alternativeJobWonRace, mainJobWonRace, mappingMissing, broken, dnsAlpnH3JobWonWithoutRace, dnsAlpnH3JobWonRace, unspecifiedReason
 	SecurityState               string                  `json:"securityState"`                         // Security state of the request resource. enum values: unknown, neutral, insecure, secure, info, insecure-broken
 	SecurityDetails             *NetworkSecurityDetails `json:"securityDetails,omitempty"`             // Security details for the request.
 }
@@ -146,7 +150,7 @@ type NetworkWebSocketFrame struct {
 // Information about the cached resource.
 type NetworkCachedResource struct {
 	Url      string           `json:"url"`                // Resource URL. This is the url of the original network request.
-	Type     string           `json:"type"`               // Type of this resource. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
+	Type     string           `json:"type"`               // Type of this resource. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, Prefetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
 	Response *NetworkResponse `json:"response,omitempty"` // Cached response data.
 	BodySize float64          `json:"bodySize"`           // Cached response body size.
 }
@@ -163,32 +167,34 @@ type NetworkInitiator struct {
 
 // Cookie object
 type NetworkCookie struct {
-	Name         string  `json:"name"`               // Cookie name.
-	Value        string  `json:"value"`              // Cookie value.
-	Domain       string  `json:"domain"`             // Cookie domain.
-	Path         string  `json:"path"`               // Cookie path.
-	Expires      float64 `json:"expires"`            // Cookie expiration date as the number of seconds since the UNIX epoch.
-	Size         int     `json:"size"`               // Cookie size.
-	HttpOnly     bool    `json:"httpOnly"`           // True if cookie is http-only.
-	Secure       bool    `json:"secure"`             // True if cookie is secure.
-	Session      bool    `json:"session"`            // True in case of session cookie.
-	SameSite     string  `json:"sameSite,omitempty"` // Cookie SameSite type. enum values: Strict, Lax, None
-	Priority     string  `json:"priority"`           // Cookie Priority enum values: Low, Medium, High
-	SameParty    bool    `json:"sameParty"`          // True if cookie is SameParty.
-	SourceScheme string  `json:"sourceScheme"`       // Cookie source scheme type. enum values: Unset, NonSecure, Secure
-	SourcePort   int     `json:"sourcePort"`         // Cookie source port. Valid values are {-1, [1, 65535]}, -1 indicates an unspecified port. An unspecified port value allows protocol clients to emulate legacy cookie scope for the port. This is a temporary ability and it will be removed in the future.
+	Name               string  `json:"name"`                         // Cookie name.
+	Value              string  `json:"value"`                        // Cookie value.
+	Domain             string  `json:"domain"`                       // Cookie domain.
+	Path               string  `json:"path"`                         // Cookie path.
+	Expires            float64 `json:"expires"`                      // Cookie expiration date as the number of seconds since the UNIX epoch.
+	Size               int     `json:"size"`                         // Cookie size.
+	HttpOnly           bool    `json:"httpOnly"`                     // True if cookie is http-only.
+	Secure             bool    `json:"secure"`                       // True if cookie is secure.
+	Session            bool    `json:"session"`                      // True in case of session cookie.
+	SameSite           string  `json:"sameSite,omitempty"`           // Cookie SameSite type. enum values: Strict, Lax, None
+	Priority           string  `json:"priority"`                     // Cookie Priority enum values: Low, Medium, High
+	SameParty          bool    `json:"sameParty"`                    // True if cookie is SameParty.
+	SourceScheme       string  `json:"sourceScheme"`                 // Cookie source scheme type. enum values: Unset, NonSecure, Secure
+	SourcePort         int     `json:"sourcePort"`                   // Cookie source port. Valid values are {-1, [1, 65535]}, -1 indicates an unspecified port. An unspecified port value allows protocol clients to emulate legacy cookie scope for the port. This is a temporary ability and it will be removed in the future.
+	PartitionKey       string  `json:"partitionKey,omitempty"`       // Cookie partition key. The site of the top-level URL the browser was visiting at the start of the request to the endpoint that set the cookie.
+	PartitionKeyOpaque bool    `json:"partitionKeyOpaque,omitempty"` // True if cookie partition key is opaque.
 }
 
 // A cookie which was not stored from a response with the corresponding reason.
 type NetworkBlockedSetCookieWithReason struct {
-	BlockedReasons []string       `json:"blockedReasons"`   // The reason(s) this cookie was blocked. enum values: SecureOnly, SameSiteStrict, SameSiteLax, SameSiteUnspecifiedTreatedAsLax, SameSiteNoneInsecure, UserPreferences, SyntaxError, SchemeNotSupported, OverwriteSecure, InvalidDomain, InvalidPrefix, UnknownError, SchemefulSameSiteStrict, SchemefulSameSiteLax, SchemefulSameSiteUnspecifiedTreatedAsLax, SamePartyFromCrossPartyContext, SamePartyConflictsWithOtherAttributes
+	BlockedReasons []string       `json:"blockedReasons"`   // The reason(s) this cookie was blocked. enum values: SecureOnly, SameSiteStrict, SameSiteLax, SameSiteUnspecifiedTreatedAsLax, SameSiteNoneInsecure, UserPreferences, ThirdPartyBlockedInFirstPartySet, SyntaxError, SchemeNotSupported, OverwriteSecure, InvalidDomain, InvalidPrefix, UnknownError, SchemefulSameSiteStrict, SchemefulSameSiteLax, SchemefulSameSiteUnspecifiedTreatedAsLax, SamePartyFromCrossPartyContext, SamePartyConflictsWithOtherAttributes, NameValuePairExceedsMaxSize
 	CookieLine     string         `json:"cookieLine"`       // The string representing this individual cookie as it would appear in the header. This is not the entire "cookie" or "set-cookie" header which could have multiple cookies.
 	Cookie         *NetworkCookie `json:"cookie,omitempty"` // The cookie object which represents the cookie which was not stored. It is optional because sometimes complete cookie information is not available, such as in the case of parsing errors.
 }
 
 // A cookie with was not sent with a request with the corresponding reason.
 type NetworkBlockedCookieWithReason struct {
-	BlockedReasons []string       `json:"blockedReasons"` // The reason(s) the cookie was blocked. enum values: SecureOnly, NotOnPath, DomainMismatch, SameSiteStrict, SameSiteLax, SameSiteUnspecifiedTreatedAsLax, SameSiteNoneInsecure, UserPreferences, UnknownError, SchemefulSameSiteStrict, SchemefulSameSiteLax, SchemefulSameSiteUnspecifiedTreatedAsLax, SamePartyFromCrossPartyContext
+	BlockedReasons []string       `json:"blockedReasons"` // The reason(s) the cookie was blocked. enum values: SecureOnly, NotOnPath, DomainMismatch, SameSiteStrict, SameSiteLax, SameSiteUnspecifiedTreatedAsLax, SameSiteNoneInsecure, UserPreferences, ThirdPartyBlockedInFirstPartySet, UnknownError, SchemefulSameSiteStrict, SchemefulSameSiteLax, SchemefulSameSiteUnspecifiedTreatedAsLax, SamePartyFromCrossPartyContext, NameValuePairExceedsMaxSize
 	Cookie         *NetworkCookie `json:"cookie"`         // The cookie object representing the cookie which was not sent.
 }
 
@@ -207,6 +213,7 @@ type NetworkCookieParam struct {
 	SameParty    bool    `json:"sameParty,omitempty"`    // True if cookie is SameParty.
 	SourceScheme string  `json:"sourceScheme,omitempty"` // Cookie source scheme type. enum values: Unset, NonSecure, Secure
 	SourcePort   int     `json:"sourcePort,omitempty"`   // Cookie source port. Valid values are {-1, [1, 65535]}, -1 indicates an unspecified port. An unspecified port value allows protocol clients to emulate legacy cookie scope for the port. This is a temporary ability and it will be removed in the future.
+	PartitionKey string  `json:"partitionKey,omitempty"` // Cookie partition key. The site of the top-level URL the browser was visiting at the start of the request to the endpoint that set the cookie. If not set, the cookie will be set as not partitioned.
 }
 
 // Authorization challenge for HTTP status code 401 or 407.
@@ -227,7 +234,7 @@ type NetworkAuthChallengeResponse struct {
 // Request pattern for interception.
 type NetworkRequestPattern struct {
 	UrlPattern        string `json:"urlPattern,omitempty"`        // Wildcards (`'*'` -> zero or more, `'?'` -> exactly one) are allowed. Escape character is backslash. Omitting is equivalent to `"*"`.
-	ResourceType      string `json:"resourceType,omitempty"`      // If set, only requests for matching resource types will be intercepted. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
+	ResourceType      string `json:"resourceType,omitempty"`      // If set, only requests for matching resource types will be intercepted. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, Prefetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
 	InterceptionStage string `json:"interceptionStage,omitempty"` // Stage at which to begin intercepting requests. Default is Request. enum values: Request, HeadersReceived
 }
 
@@ -269,24 +276,29 @@ type NetworkSignedExchangeInfo struct {
 }
 
 // No Description.
+type NetworkConnectTiming struct {
+	RequestTime float64 `json:"requestTime"` // Timing's requestTime is a baseline in seconds, while the other numbers are ticks in milliseconds relatively to this requestTime. Matches ResourceTiming's requestTime for the same request (but not for redirected requests).
+}
+
+// No Description.
 type NetworkClientSecurityState struct {
 	InitiatorIsSecureContext    bool   `json:"initiatorIsSecureContext"`    //
 	InitiatorIPAddressSpace     string `json:"initiatorIPAddressSpace"`     //  enum values: Local, Private, Public, Unknown
-	PrivateNetworkRequestPolicy string `json:"privateNetworkRequestPolicy"` //  enum values: Allow, BlockFromInsecureToMorePrivate, WarnFromInsecureToMorePrivate
+	PrivateNetworkRequestPolicy string `json:"privateNetworkRequestPolicy"` //  enum values: Allow, BlockFromInsecureToMorePrivate, WarnFromInsecureToMorePrivate, PreflightBlock, PreflightWarn
 }
 
 // No Description.
 type NetworkCrossOriginOpenerPolicyStatus struct {
-	Value                       string `json:"value"`                                 //  enum values: SameOrigin, SameOriginAllowPopups, UnsafeNone, SameOriginPlusCoep
-	ReportOnlyValue             string `json:"reportOnlyValue"`                       //  enum values: SameOrigin, SameOriginAllowPopups, UnsafeNone, SameOriginPlusCoep
+	Value                       string `json:"value"`                                 //  enum values: SameOrigin, SameOriginAllowPopups, RestrictProperties, UnsafeNone, SameOriginPlusCoep, RestrictPropertiesPlusCoep
+	ReportOnlyValue             string `json:"reportOnlyValue"`                       //  enum values: SameOrigin, SameOriginAllowPopups, RestrictProperties, UnsafeNone, SameOriginPlusCoep, RestrictPropertiesPlusCoep
 	ReportingEndpoint           string `json:"reportingEndpoint,omitempty"`           //
 	ReportOnlyReportingEndpoint string `json:"reportOnlyReportingEndpoint,omitempty"` //
 }
 
 // No Description.
 type NetworkCrossOriginEmbedderPolicyStatus struct {
-	Value                       string `json:"value"`                                 //  enum values: None, CorsOrCredentialless, RequireCorp
-	ReportOnlyValue             string `json:"reportOnlyValue"`                       //  enum values: None, CorsOrCredentialless, RequireCorp
+	Value                       string `json:"value"`                                 //  enum values: None, Credentialless, RequireCorp
+	ReportOnlyValue             string `json:"reportOnlyValue"`                       //  enum values: None, Credentialless, RequireCorp
 	ReportingEndpoint           string `json:"reportingEndpoint,omitempty"`           //
 	ReportOnlyReportingEndpoint string `json:"reportOnlyReportingEndpoint,omitempty"` //
 }
@@ -295,6 +307,25 @@ type NetworkCrossOriginEmbedderPolicyStatus struct {
 type NetworkSecurityIsolationStatus struct {
 	Coop *NetworkCrossOriginOpenerPolicyStatus   `json:"coop,omitempty"` //
 	Coep *NetworkCrossOriginEmbedderPolicyStatus `json:"coep,omitempty"` //
+}
+
+// An object representing a report generated by the Reporting API.
+type NetworkReportingApiReport struct {
+	Id                string                 `json:"id"`                //
+	InitiatorUrl      string                 `json:"initiatorUrl"`      // The URL of the document that triggered the report.
+	Destination       string                 `json:"destination"`       // The name of the endpoint group that should be used to deliver the report.
+	Type              string                 `json:"type"`              // The type of the report (specifies the set of data that is contained in the report body).
+	Timestamp         float64                `json:"timestamp"`         // When the report was generated.
+	Depth             int                    `json:"depth"`             // How many uploads deep the related request was.
+	CompletedAttempts int                    `json:"completedAttempts"` // The number of delivery attempts made so far, not including an active attempt.
+	Body              map[string]interface{} `json:"body"`              //
+	Status            string                 `json:"status"`            //  enum values: Queued, Pending, MarkedForRemoval, Success
+}
+
+// No Description.
+type NetworkReportingApiEndpoint struct {
+	Url       string `json:"url"`       // The URL of the endpoint to which reports may be delivered.
+	GroupName string `json:"groupName"` // Name of the endpoint group.
 }
 
 // An object providing the result of a network resource load.
@@ -342,7 +373,7 @@ type NetworkLoadingFailedEvent struct {
 	Params struct {
 		RequestId       string                  `json:"requestId"`                 // Request identifier.
 		Timestamp       float64                 `json:"timestamp"`                 // Timestamp.
-		Type            string                  `json:"type"`                      // Resource type. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
+		Type            string                  `json:"type"`                      // Resource type. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, Prefetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
 		ErrorText       string                  `json:"errorText"`                 // User friendly error message.
 		Canceled        bool                    `json:"canceled,omitempty"`        // True if loading was canceled.
 		BlockedReason   string                  `json:"blockedReason,omitempty"`   // The reason why loading was blocked, if any. enum values: other, csp, mixed-content, origin, inspector, subresource-filter, content-type, coep-frame-resource-needs-coep-header, coop-sandboxed-iframe-cannot-navigate-to-coop-page, corp-not-same-origin, corp-not-same-origin-after-defaulted-to-same-origin-by-coep, corp-not-same-site
@@ -368,7 +399,7 @@ type NetworkRequestInterceptedEvent struct {
 		InterceptionId      string                 `json:"interceptionId"`                // Each request the page makes will have a unique id, however if any redirects are encountered while processing that fetch, they will be reported with the same id as the original fetch. Likewise if HTTP authentication is needed then the same fetch id will be used.
 		Request             *NetworkRequest        `json:"request"`                       //
 		FrameId             string                 `json:"frameId"`                       // The id of the frame that initiated the request.
-		ResourceType        string                 `json:"resourceType"`                  // How the requested resource will be used. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
+		ResourceType        string                 `json:"resourceType"`                  // How the requested resource will be used. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, Prefetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
 		IsNavigationRequest bool                   `json:"isNavigationRequest"`           // Whether this is a navigation request, which can abort the navigation completely.
 		IsDownload          bool                   `json:"isDownload,omitempty"`          // Set if the request is a navigation that will result in a download. Only present after response is received from the server (i.e. HeadersReceived stage).
 		RedirectUrl         string                 `json:"redirectUrl,omitempty"`         // Redirect location, only sent if a redirect was intercepted.
@@ -392,17 +423,18 @@ type NetworkRequestServedFromCacheEvent struct {
 type NetworkRequestWillBeSentEvent struct {
 	Method string `json:"method"`
 	Params struct {
-		RequestId        string            `json:"requestId"`                  // Request identifier.
-		LoaderId         string            `json:"loaderId"`                   // Loader identifier. Empty string if the request is fetched from worker.
-		DocumentURL      string            `json:"documentURL"`                // URL of the document this request is loaded for.
-		Request          *NetworkRequest   `json:"request"`                    // Request data.
-		Timestamp        float64           `json:"timestamp"`                  // Timestamp.
-		WallTime         float64           `json:"wallTime"`                   // Timestamp.
-		Initiator        *NetworkInitiator `json:"initiator"`                  // Request initiator.
-		RedirectResponse *NetworkResponse  `json:"redirectResponse,omitempty"` // Redirect response data.
-		Type             string            `json:"type,omitempty"`             // Type of this resource. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
-		FrameId          string            `json:"frameId,omitempty"`          // Frame identifier.
-		HasUserGesture   bool              `json:"hasUserGesture,omitempty"`   // Whether the request is initiated by a user gesture. Defaults to false.
+		RequestId            string            `json:"requestId"`                  // Request identifier.
+		LoaderId             string            `json:"loaderId"`                   // Loader identifier. Empty string if the request is fetched from worker.
+		DocumentURL          string            `json:"documentURL"`                // URL of the document this request is loaded for.
+		Request              *NetworkRequest   `json:"request"`                    // Request data.
+		Timestamp            float64           `json:"timestamp"`                  // Timestamp.
+		WallTime             float64           `json:"wallTime"`                   // Timestamp.
+		Initiator            *NetworkInitiator `json:"initiator"`                  // Request initiator.
+		RedirectHasExtraInfo bool              `json:"redirectHasExtraInfo"`       // In the case that redirectResponse is populated, this flag indicates whether requestWillBeSentExtraInfo and responseReceivedExtraInfo events will be or were emitted for the request which was just redirected.
+		RedirectResponse     *NetworkResponse  `json:"redirectResponse,omitempty"` // Redirect response data.
+		Type                 string            `json:"type,omitempty"`             // Type of this resource. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, Prefetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
+		FrameId              string            `json:"frameId,omitempty"`          // Frame identifier.
+		HasUserGesture       bool              `json:"hasUserGesture,omitempty"`   // Whether the request is initiated by a user gesture. Defaults to false.
 	} `json:"Params,omitempty"`
 }
 
@@ -429,12 +461,13 @@ type NetworkSignedExchangeReceivedEvent struct {
 type NetworkResponseReceivedEvent struct {
 	Method string `json:"method"`
 	Params struct {
-		RequestId string           `json:"requestId"`         // Request identifier.
-		LoaderId  string           `json:"loaderId"`          // Loader identifier. Empty string if the request is fetched from worker.
-		Timestamp float64          `json:"timestamp"`         // Timestamp.
-		Type      string           `json:"type"`              // Resource type. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
-		Response  *NetworkResponse `json:"response"`          // Response data.
-		FrameId   string           `json:"frameId,omitempty"` // Frame identifier.
+		RequestId    string           `json:"requestId"`         // Request identifier.
+		LoaderId     string           `json:"loaderId"`          // Loader identifier. Empty string if the request is fetched from worker.
+		Timestamp    float64          `json:"timestamp"`         // Timestamp.
+		Type         string           `json:"type"`              // Resource type. enum values: Document, Stylesheet, Image, Media, Font, Script, TextTrack, XHR, Fetch, Prefetch, EventSource, WebSocket, Manifest, SignedExchange, Ping, CSPViolationReport, Preflight, Other
+		Response     *NetworkResponse `json:"response"`          // Response data.
+		HasExtraInfo bool             `json:"hasExtraInfo"`      // Indicates whether requestWillBeSentExtraInfo and responseReceivedExtraInfo events will be or were emitted for this request.
+		FrameId      string           `json:"frameId,omitempty"` // Frame identifier.
 	} `json:"Params,omitempty"`
 }
 
@@ -541,10 +574,12 @@ type NetworkWebTransportClosedEvent struct {
 type NetworkRequestWillBeSentExtraInfoEvent struct {
 	Method string `json:"method"`
 	Params struct {
-		RequestId           string                            `json:"requestId"`                     // Request identifier. Used to match this information to an existing requestWillBeSent event.
-		AssociatedCookies   []*NetworkBlockedCookieWithReason `json:"associatedCookies"`             // A list of cookies potentially associated to the requested URL. This includes both cookies sent with the request and the ones not sent; the latter are distinguished by having blockedReason field set.
-		Headers             map[string]interface{}            `json:"headers"`                       // Raw request headers as they will be sent over the wire.
-		ClientSecurityState *NetworkClientSecurityState       `json:"clientSecurityState,omitempty"` // The client security state set for the request.
+		RequestId                     string                            `json:"requestId"`                               // Request identifier. Used to match this information to an existing requestWillBeSent event.
+		AssociatedCookies             []*NetworkBlockedCookieWithReason `json:"associatedCookies"`                       // A list of cookies potentially associated to the requested URL. This includes both cookies sent with the request and the ones not sent; the latter are distinguished by having blockedReason field set.
+		Headers                       map[string]interface{}            `json:"headers"`                                 // Raw request headers as they will be sent over the wire.
+		ConnectTiming                 *NetworkConnectTiming             `json:"connectTiming"`                           // Connection timing information for the request.
+		ClientSecurityState           *NetworkClientSecurityState       `json:"clientSecurityState,omitempty"`           // The client security state set for the request.
+		SiteHasCookieInOtherPartition bool                              `json:"siteHasCookieInOtherPartition,omitempty"` // Whether the site has partitioned cookies stored in a partition different than the current one.
 	} `json:"Params,omitempty"`
 }
 
@@ -552,11 +587,14 @@ type NetworkRequestWillBeSentExtraInfoEvent struct {
 type NetworkResponseReceivedExtraInfoEvent struct {
 	Method string `json:"method"`
 	Params struct {
-		RequestId              string                               `json:"requestId"`              // Request identifier. Used to match this information to another responseReceived event.
-		BlockedCookies         []*NetworkBlockedSetCookieWithReason `json:"blockedCookies"`         // A list of cookies which were not stored from the response along with the corresponding reasons for blocking. The cookies here may not be valid due to syntax errors, which are represented by the invalid cookie line string instead of a proper cookie.
-		Headers                map[string]interface{}               `json:"headers"`                // Raw response headers as they were received over the wire.
-		ResourceIPAddressSpace string                               `json:"resourceIPAddressSpace"` // The IP address space of the resource. The address space can only be determined once the transport established the connection, so we can't send it in `requestWillBeSentExtraInfo`. enum values: Local, Private, Public, Unknown
-		HeadersText            string                               `json:"headersText,omitempty"`  // Raw response header text as it was received over the wire. The raw text may not always be available, such as in the case of HTTP/2 or QUIC.
+		RequestId                string                               `json:"requestId"`                          // Request identifier. Used to match this information to another responseReceived event.
+		BlockedCookies           []*NetworkBlockedSetCookieWithReason `json:"blockedCookies"`                     // A list of cookies which were not stored from the response along with the corresponding reasons for blocking. The cookies here may not be valid due to syntax errors, which are represented by the invalid cookie line string instead of a proper cookie.
+		Headers                  map[string]interface{}               `json:"headers"`                            // Raw response headers as they were received over the wire.
+		ResourceIPAddressSpace   string                               `json:"resourceIPAddressSpace"`             // The IP address space of the resource. The address space can only be determined once the transport established the connection, so we can't send it in `requestWillBeSentExtraInfo`. enum values: Local, Private, Public, Unknown
+		StatusCode               int                                  `json:"statusCode"`                         // The status code of the response. This is useful in cases the request failed and no responseReceived event is triggered, which is the case for, e.g., CORS errors. This is also the correct status code for cached requests, where the status in responseReceived is a 200 and this will be 304.
+		HeadersText              string                               `json:"headersText,omitempty"`              // Raw response header text as it was received over the wire. The raw text may not always be available, such as in the case of HTTP/2 or QUIC.
+		CookiePartitionKey       string                               `json:"cookiePartitionKey,omitempty"`       // The cookie partition key that will be used to store partitioned cookies set in this response. Only sent when partitioned cookies are enabled.
+		CookiePartitionKeyOpaque bool                                 `json:"cookiePartitionKeyOpaque,omitempty"` // True if partitioned cookies are enabled, but the partition key is not serializeable to string.
 	} `json:"Params,omitempty"`
 }
 
@@ -609,6 +647,31 @@ type NetworkSubresourceWebBundleInnerResponseErrorEvent struct {
 		InnerRequestURL string `json:"innerRequestURL"`           // URL of the subresource resource.
 		ErrorMessage    string `json:"errorMessage"`              // Error message
 		BundleRequestId string `json:"bundleRequestId,omitempty"` // Bundle request identifier. Used to match this information to another event. This made be absent in case when the instrumentation was enabled only after webbundle was parsed.
+	} `json:"Params,omitempty"`
+}
+
+// Is sent whenever a new report is added. And after 'enableReportingApi' for all existing reports.
+type NetworkReportingApiReportAddedEvent struct {
+	Method string `json:"method"`
+	Params struct {
+		Report *NetworkReportingApiReport `json:"report"` //
+	} `json:"Params,omitempty"`
+}
+
+//
+type NetworkReportingApiReportUpdatedEvent struct {
+	Method string `json:"method"`
+	Params struct {
+		Report *NetworkReportingApiReport `json:"report"` //
+	} `json:"Params,omitempty"`
+}
+
+//
+type NetworkReportingApiEndpointsChangedForOriginEvent struct {
+	Method string `json:"method"`
+	Params struct {
+		Origin    string                         `json:"origin"`    // Origin of the document(s) which configured the endpoints.
+		Endpoints []*NetworkReportingApiEndpoint `json:"endpoints"` //
 	} `json:"Params,omitempty"`
 }
 
@@ -891,7 +954,7 @@ func (c *Network) Enable(ctx context.Context, maxTotalBufferSize int, maxResourc
 	return c.EnableWithParams(ctx, &v)
 }
 
-// GetAllCookies - Returns all browser cookies. Depending on the backend support, will return detailed cookie information in the `cookies` field.
+// GetAllCookies - Returns all browser cookies. Depending on the backend support, will return detailed cookie information in the `cookies` field. Deprecated. Use Storage.getCookies instead.
 // Returns -  cookies - Array of cookie objects.
 func (c *Network) GetAllCookies(ctx context.Context) ([]*NetworkCookie, error) {
 	resp, err := c.target.SendCustomReturn(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Network.getAllCookies"})
@@ -1358,6 +1421,8 @@ type NetworkSetCookieParams struct {
 	SourceScheme string `json:"sourceScheme,omitempty"`
 	// Cookie source port. Valid values are {-1, [1, 65535]}, -1 indicates an unspecified port. An unspecified port value allows protocol clients to emulate legacy cookie scope for the port. This is a temporary ability and it will be removed in the future.
 	SourcePort int `json:"sourcePort,omitempty"`
+	// Cookie partition key. The site of the top-level URL the browser was visiting at the start of the request to the endpoint that set the cookie. If not set, the cookie will be set as not partitioned.
+	PartitionKey string `json:"partitionKey,omitempty"`
 }
 
 // SetCookieWithParams - Sets a cookie with the given cookie data; may overwrite equivalent cookies if they exist.
@@ -1406,8 +1471,9 @@ func (c *Network) SetCookieWithParams(ctx context.Context, v *NetworkSetCookiePa
 // sameParty - True if cookie is SameParty.
 // sourceScheme - Cookie source scheme type. enum values: Unset, NonSecure, Secure
 // sourcePort - Cookie source port. Valid values are {-1, [1, 65535]}, -1 indicates an unspecified port. An unspecified port value allows protocol clients to emulate legacy cookie scope for the port. This is a temporary ability and it will be removed in the future.
+// partitionKey - Cookie partition key. The site of the top-level URL the browser was visiting at the start of the request to the endpoint that set the cookie. If not set, the cookie will be set as not partitioned.
 // Returns -  success - Always set to true. If an error occurs, the response indicates protocol error.
-func (c *Network) SetCookie(ctx context.Context, name string, value string, url string, domain string, path string, secure bool, httpOnly bool, sameSite string, expires float64, priority string, sameParty bool, sourceScheme string, sourcePort int) (bool, error) {
+func (c *Network) SetCookie(ctx context.Context, name string, value string, url string, domain string, path string, secure bool, httpOnly bool, sameSite string, expires float64, priority string, sameParty bool, sourceScheme string, sourcePort int, partitionKey string) (bool, error) {
 	var v NetworkSetCookieParams
 	v.Name = name
 	v.Value = value
@@ -1422,6 +1488,7 @@ func (c *Network) SetCookie(ctx context.Context, name string, value string, url 
 	v.SameParty = sameParty
 	v.SourceScheme = sourceScheme
 	v.SourcePort = sourcePort
+	v.PartitionKey = partitionKey
 	return c.SetCookieWithParams(ctx, &v)
 }
 
@@ -1441,28 +1508,6 @@ func (c *Network) SetCookies(ctx context.Context, cookies []*NetworkCookieParam)
 	var v NetworkSetCookiesParams
 	v.Cookies = cookies
 	return c.SetCookiesWithParams(ctx, &v)
-}
-
-type NetworkSetDataSizeLimitsForTestParams struct {
-	// Maximum total buffer size.
-	MaxTotalSize int `json:"maxTotalSize"`
-	// Maximum per-resource size.
-	MaxResourceSize int `json:"maxResourceSize"`
-}
-
-// SetDataSizeLimitsForTestWithParams - For testing.
-func (c *Network) SetDataSizeLimitsForTestWithParams(ctx context.Context, v *NetworkSetDataSizeLimitsForTestParams) (*gcdmessage.ChromeResponse, error) {
-	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Network.setDataSizeLimitsForTest", Params: v})
-}
-
-// SetDataSizeLimitsForTest - For testing.
-// maxTotalSize - Maximum total buffer size.
-// maxResourceSize - Maximum per-resource size.
-func (c *Network) SetDataSizeLimitsForTest(ctx context.Context, maxTotalSize int, maxResourceSize int) (*gcdmessage.ChromeResponse, error) {
-	var v NetworkSetDataSizeLimitsForTestParams
-	v.MaxTotalSize = maxTotalSize
-	v.MaxResourceSize = maxResourceSize
-	return c.SetDataSizeLimitsForTestWithParams(ctx, &v)
 }
 
 type NetworkSetExtraHTTPHeadersParams struct {
@@ -1595,9 +1640,27 @@ func (c *Network) GetSecurityIsolationStatus(ctx context.Context, frameId string
 	return c.GetSecurityIsolationStatusWithParams(ctx, &v)
 }
 
+type NetworkEnableReportingApiParams struct {
+	// Whether to enable or disable events for the Reporting API
+	Enable bool `json:"enable"`
+}
+
+// EnableReportingApiWithParams - Enables tracking for the Reporting API, events generated by the Reporting API will now be delivered to the client. Enabling triggers 'reportingApiReportAdded' for all existing reports.
+func (c *Network) EnableReportingApiWithParams(ctx context.Context, v *NetworkEnableReportingApiParams) (*gcdmessage.ChromeResponse, error) {
+	return c.target.SendDefaultRequest(ctx, &gcdmessage.ParamRequest{Id: c.target.GetId(), Method: "Network.enableReportingApi", Params: v})
+}
+
+// EnableReportingApi - Enables tracking for the Reporting API, events generated by the Reporting API will now be delivered to the client. Enabling triggers 'reportingApiReportAdded' for all existing reports.
+// enable - Whether to enable or disable events for the Reporting API
+func (c *Network) EnableReportingApi(ctx context.Context, enable bool) (*gcdmessage.ChromeResponse, error) {
+	var v NetworkEnableReportingApiParams
+	v.Enable = enable
+	return c.EnableReportingApiWithParams(ctx, &v)
+}
+
 type NetworkLoadNetworkResourceParams struct {
-	// Frame id to get the resource for.
-	FrameId string `json:"frameId"`
+	// Frame id to get the resource for. Mandatory for frame targets, and should be omitted for worker targets.
+	FrameId string `json:"frameId,omitempty"`
 	// URL of the resource to get content for.
 	Url string `json:"url"`
 	// Options for the request.
@@ -1637,7 +1700,7 @@ func (c *Network) LoadNetworkResourceWithParams(ctx context.Context, v *NetworkL
 }
 
 // LoadNetworkResource - Fetches the resource and returns the content.
-// frameId - Frame id to get the resource for.
+// frameId - Frame id to get the resource for. Mandatory for frame targets, and should be omitted for worker targets.
 // url - URL of the resource to get content for.
 // options - Options for the request.
 // Returns -  resource -

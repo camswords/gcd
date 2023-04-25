@@ -238,6 +238,10 @@ func (c *HeapProfiler) GetSamplingProfile(ctx context.Context) (*HeapProfilerSam
 type HeapProfilerStartSamplingParams struct {
 	// Average sample interval in bytes. Poisson distribution is used for the intervals. The default value is 32768 bytes.
 	SamplingInterval float64 `json:"samplingInterval,omitempty"`
+	// By default, the sampling heap profiler reports only objects which are still alive when the profile is returned via getSamplingProfile or stopSampling, which is useful for determining what functions contribute the most to steady-state memory usage. This flag instructs the sampling heap profiler to also include information about objects discarded by major GC, which will show which functions cause large temporary memory usage or long GC pauses.
+	IncludeObjectsCollectedByMajorGC bool `json:"includeObjectsCollectedByMajorGC,omitempty"`
+	// By default, the sampling heap profiler reports only objects which are still alive when the profile is returned via getSamplingProfile or stopSampling, which is useful for determining what functions contribute the most to steady-state memory usage. This flag instructs the sampling heap profiler to also include information about objects discarded by minor GC, which is useful when tuning a latency-sensitive application for minimal GC activity.
+	IncludeObjectsCollectedByMinorGC bool `json:"includeObjectsCollectedByMinorGC,omitempty"`
 }
 
 // StartSamplingWithParams -
@@ -247,9 +251,13 @@ func (c *HeapProfiler) StartSamplingWithParams(ctx context.Context, v *HeapProfi
 
 // StartSampling -
 // samplingInterval - Average sample interval in bytes. Poisson distribution is used for the intervals. The default value is 32768 bytes.
-func (c *HeapProfiler) StartSampling(ctx context.Context, samplingInterval float64) (*gcdmessage.ChromeResponse, error) {
+// includeObjectsCollectedByMajorGC - By default, the sampling heap profiler reports only objects which are still alive when the profile is returned via getSamplingProfile or stopSampling, which is useful for determining what functions contribute the most to steady-state memory usage. This flag instructs the sampling heap profiler to also include information about objects discarded by major GC, which will show which functions cause large temporary memory usage or long GC pauses.
+// includeObjectsCollectedByMinorGC - By default, the sampling heap profiler reports only objects which are still alive when the profile is returned via getSamplingProfile or stopSampling, which is useful for determining what functions contribute the most to steady-state memory usage. This flag instructs the sampling heap profiler to also include information about objects discarded by minor GC, which is useful when tuning a latency-sensitive application for minimal GC activity.
+func (c *HeapProfiler) StartSampling(ctx context.Context, samplingInterval float64, includeObjectsCollectedByMajorGC bool, includeObjectsCollectedByMinorGC bool) (*gcdmessage.ChromeResponse, error) {
 	var v HeapProfilerStartSamplingParams
 	v.SamplingInterval = samplingInterval
+	v.IncludeObjectsCollectedByMajorGC = includeObjectsCollectedByMajorGC
+	v.IncludeObjectsCollectedByMinorGC = includeObjectsCollectedByMinorGC
 	return c.StartSamplingWithParams(ctx, &v)
 }
 
@@ -306,8 +314,12 @@ func (c *HeapProfiler) StopSampling(ctx context.Context) (*HeapProfilerSamplingH
 type HeapProfilerStopTrackingHeapObjectsParams struct {
 	// If true 'reportHeapSnapshotProgress' events will be generated while snapshot is being taken when the tracking is stopped.
 	ReportProgress bool `json:"reportProgress,omitempty"`
-	//
+	// Deprecated in favor of `exposeInternals`.
 	TreatGlobalObjectsAsRoots bool `json:"treatGlobalObjectsAsRoots,omitempty"`
+	// If true, numerical values are included in the snapshot
+	CaptureNumericValue bool `json:"captureNumericValue,omitempty"`
+	// If true, exposes internals of the snapshot.
+	ExposeInternals bool `json:"exposeInternals,omitempty"`
 }
 
 // StopTrackingHeapObjectsWithParams -
@@ -317,19 +329,27 @@ func (c *HeapProfiler) StopTrackingHeapObjectsWithParams(ctx context.Context, v 
 
 // StopTrackingHeapObjects -
 // reportProgress - If true 'reportHeapSnapshotProgress' events will be generated while snapshot is being taken when the tracking is stopped.
-// treatGlobalObjectsAsRoots -
-func (c *HeapProfiler) StopTrackingHeapObjects(ctx context.Context, reportProgress bool, treatGlobalObjectsAsRoots bool) (*gcdmessage.ChromeResponse, error) {
+// treatGlobalObjectsAsRoots - Deprecated in favor of `exposeInternals`.
+// captureNumericValue - If true, numerical values are included in the snapshot
+// exposeInternals - If true, exposes internals of the snapshot.
+func (c *HeapProfiler) StopTrackingHeapObjects(ctx context.Context, reportProgress bool, treatGlobalObjectsAsRoots bool, captureNumericValue bool, exposeInternals bool) (*gcdmessage.ChromeResponse, error) {
 	var v HeapProfilerStopTrackingHeapObjectsParams
 	v.ReportProgress = reportProgress
 	v.TreatGlobalObjectsAsRoots = treatGlobalObjectsAsRoots
+	v.CaptureNumericValue = captureNumericValue
+	v.ExposeInternals = exposeInternals
 	return c.StopTrackingHeapObjectsWithParams(ctx, &v)
 }
 
 type HeapProfilerTakeHeapSnapshotParams struct {
 	// If true 'reportHeapSnapshotProgress' events will be generated while snapshot is being taken.
 	ReportProgress bool `json:"reportProgress,omitempty"`
-	// If true, a raw snapshot without artifical roots will be generated
+	// If true, a raw snapshot without artificial roots will be generated. Deprecated in favor of `exposeInternals`.
 	TreatGlobalObjectsAsRoots bool `json:"treatGlobalObjectsAsRoots,omitempty"`
+	// If true, numerical values are included in the snapshot
+	CaptureNumericValue bool `json:"captureNumericValue,omitempty"`
+	// If true, exposes internals of the snapshot.
+	ExposeInternals bool `json:"exposeInternals,omitempty"`
 }
 
 // TakeHeapSnapshotWithParams -
@@ -339,10 +359,14 @@ func (c *HeapProfiler) TakeHeapSnapshotWithParams(ctx context.Context, v *HeapPr
 
 // TakeHeapSnapshot -
 // reportProgress - If true 'reportHeapSnapshotProgress' events will be generated while snapshot is being taken.
-// treatGlobalObjectsAsRoots - If true, a raw snapshot without artifical roots will be generated
-func (c *HeapProfiler) TakeHeapSnapshot(ctx context.Context, reportProgress bool, treatGlobalObjectsAsRoots bool) (*gcdmessage.ChromeResponse, error) {
+// treatGlobalObjectsAsRoots - If true, a raw snapshot without artificial roots will be generated. Deprecated in favor of `exposeInternals`.
+// captureNumericValue - If true, numerical values are included in the snapshot
+// exposeInternals - If true, exposes internals of the snapshot.
+func (c *HeapProfiler) TakeHeapSnapshot(ctx context.Context, reportProgress bool, treatGlobalObjectsAsRoots bool, captureNumericValue bool, exposeInternals bool) (*gcdmessage.ChromeResponse, error) {
 	var v HeapProfilerTakeHeapSnapshotParams
 	v.ReportProgress = reportProgress
 	v.TreatGlobalObjectsAsRoots = treatGlobalObjectsAsRoots
+	v.CaptureNumericValue = captureNumericValue
+	v.ExposeInternals = exposeInternals
 	return c.TakeHeapSnapshotWithParams(ctx, &v)
 }
