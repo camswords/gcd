@@ -1,4 +1,4 @@
-module github.com/wirepair/gcd/v2
+module github.com/camswords/gcd/v2
 
 go 1.19
 

@@ -6,7 +6,7 @@ package gcdapi
 
 import (
 	"context"
-	"github.com/wirepair/gcd/v2/gcdmessage"
+	"github.com/camswords/gcd/v2/gcdmessage"
 )
 
 // Represents the value serialiazed by the WebDriver BiDi specification https://w3c.github.io/webdriver-bidi.

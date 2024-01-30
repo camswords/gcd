@@ -37,9 +37,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wirepair/gcd/v2/observer"
+	"github.com/camswords/gcd/v2/observer"
 
-	"github.com/wirepair/gcd/v2/gcdapi"
+	"github.com/camswords/gcd/v2/gcdapi"
 )
 
 var GCDVERSION = "v2.3.1"

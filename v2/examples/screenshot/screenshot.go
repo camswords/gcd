@@ -12,8 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wirepair/gcd/v2"
-	"github.com/wirepair/gcd/v2/gcdapi"
+	"github.com/camswords/gcd/v2/gcdapi"
 )
 
 const (

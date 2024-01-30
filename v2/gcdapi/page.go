@@ -6,7 +6,7 @@ package gcdapi
 
 import (
 	"context"
-	"github.com/wirepair/gcd/v2/gcdmessage"
+	"github.com/camswords/gcd/v2/gcdmessage"
 )
 
 // Indicates whether a frame has been identified as an ad and why.

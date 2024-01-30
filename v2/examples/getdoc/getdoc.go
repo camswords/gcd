@@ -5,8 +5,6 @@ import (
 	"flag"
 	"log"
 	"runtime"
-
-	"github.com/wirepair/gcd/v2"
 )
 
 var path string

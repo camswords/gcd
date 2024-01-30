@@ -6,7 +6,7 @@ package gcdapi
 
 import (
 	"context"
-	"github.com/wirepair/gcd/v2/gcdmessage"
+	"github.com/camswords/gcd/v2/gcdmessage"
 )
 
 // CSS rule collection for a single pseudo style.

@@ -31,10 +31,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/wirepair/gcd/v2/observer"
+	"github.com/camswords/gcd/v2/observer"
 
-	"github.com/wirepair/gcd/v2/gcdapi"
-	"github.com/wirepair/gcd/v2/gcdmessage"
+	"github.com/camswords/gcd/v2/gcdapi"
+	"github.com/camswords/gcd/v2/gcdmessage"
 )
 
 // TargetInfo defines the 'tab' or target for this chrome instance,

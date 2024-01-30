@@ -6,7 +6,7 @@ package gcdapi
 
 import (
 	"context"
-	"github.com/wirepair/gcd/v2/gcdmessage"
+	"github.com/camswords/gcd/v2/gcdmessage"
 )
 
 // See https://github.com/WICG/LargestContentfulPaint and largest_contentful_paint.idl

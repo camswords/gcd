@@ -1,6 +1,6 @@
 package observer
 
-import "github.com/wirepair/gcd/v2/gcdmessage"
+import "github.com/camswords/gcd/v2/gcdmessage"
 
 type MessageObserver interface {
 	Request(ID int64, method string, jsonData []byte)
@@ -21,7 +21,7 @@ func NewIgnoreMessagesObserver() *IgnoreMessagesObserver {
 	return &IgnoreMessagesObserver{}
 }
 
-type IgnoreMessagesObserver struct {}
+type IgnoreMessagesObserver struct{}
 
 func (observer *IgnoreMessagesObserver) Request(ID int64, method string, jsonData []byte) {
 	// intentionally blank
